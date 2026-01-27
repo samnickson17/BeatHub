@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../beats/beat_model.dart';
@@ -26,13 +28,10 @@ class _RapRecordPageState extends State<RapRecordPage> {
   String? _recordedPath;
 
   Future<void> _startRecording() async {
-    // 🌐 Chrome / Web fallback
     if (kIsWeb) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            "Rap recording works on Android device",
-          ),
+          content: Text("Rap recording works only on Android device"),
         ),
       );
       return;
@@ -41,13 +40,22 @@ class _RapRecordPageState extends State<RapRecordPage> {
     final permission = await Permission.microphone.request();
     if (!permission.isGranted) return;
 
+    final dir = await getTemporaryDirectory();
+    final filePath = p.join(dir.path, "rap_preview.m4a");
+
     await _recorder.start(
-      const RecordConfig(),
-      path: "rap_preview.m4a",
+      const RecordConfig(
+        encoder: AudioEncoder.aacLc,
+        bitRate: 128000,
+        sampleRate: 44100,
+        numChannels: 1,
+      ),
+      path: filePath,
     );
 
     setState(() {
       _isRecording = true;
+      _recordedPath = filePath;
     });
   }
 
@@ -106,7 +114,7 @@ class _RapRecordPageState extends State<RapRecordPage> {
                 _isRecording ? "Stop Recording" : "Start Recording",
               ),
               onPressed:
-                  _isRecording ? _stopRecording : _startRecording,
+              _isRecording ? _stopRecording : _startRecording,
             ),
 
             const SizedBox(height: 15),
@@ -115,7 +123,7 @@ class _RapRecordPageState extends State<RapRecordPage> {
               icon: const Icon(Icons.play_arrow),
               label: const Text("Play Preview"),
               onPressed:
-                  _recordedPath == null ? null : _playRecording,
+              _recordedPath == null ? null : _playRecording,
             ),
 
             const SizedBox(height: 25),
