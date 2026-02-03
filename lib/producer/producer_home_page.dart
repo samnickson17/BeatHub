@@ -1,117 +1,65 @@
 import 'package:flutter/material.dart';
-
-// Producer pages
+import '../beats/beat_store.dart';
+import '../beats/beat_detail_page.dart';
 import 'upload_beat_page.dart';
-import 'revenue_calculator.dart';
 
-class ProducerHomePage extends StatelessWidget {
+class ProducerHomePage extends StatefulWidget {
   const ProducerHomePage({super.key});
 
   @override
+  State<ProducerHomePage> createState() => _ProducerHomePageState();
+}
+
+class _ProducerHomePageState extends State<ProducerHomePage> {
+  @override
   Widget build(BuildContext context) {
+    final myBeats = BeatStore.beats;
+
     return Scaffold(
       appBar: AppBar(
-        // ➕ Upload Beat
-        leading: IconButton(
-          icon: const Icon(Icons.add),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const UploadBeatPage(),
-              ),
-            );
-          },
-        ),
-
-        title: const Text(
-          "BeatHub",
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: const Text("My Beats"),
         centerTitle: true,
-
-        // 💰 Revenue
         actions: [
           IconButton(
-            icon: const Icon(Icons.currency_rupee),
-            onPressed: () {
-              Navigator.push(
+            icon: const Icon(Icons.add),
+            onPressed: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const RevenueCalculatorPage(),
+                  builder: (_) => const UploadBeatPage(),
                 ),
               );
+              setState(() {}); // 🔥 refresh list
             },
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 🔥 PRODUCER USP BANNER
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              color: Colors.green.shade50,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      "🎹 Producer Dashboard",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+      body: myBeats.isEmpty
+          ? const Center(
+              child: Text("No beats uploaded yet"),
+            )
+          : ListView.builder(
+              itemCount: myBeats.length,
+              itemBuilder: (context, index) {
+                final beat = myBeats[index];
+
+                return ListTile(
+                  leading: const Icon(Icons.music_note),
+                  title: Text(beat.title),
+                  subtitle: Text(
+                      "${beat.genre} • ₹${beat.price}"),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            BeatDetailPage(beat: beat),
                       ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      "Upload beats instantly and track your earnings with full transparency.",
-                      style: TextStyle(fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
+                    );
+                  },
+                );
+              },
             ),
-
-            const SizedBox(height: 30),
-
-            const Text(
-              "Your Activity",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            Card(
-              child: ListTile(
-                leading: Icon(Icons.library_music),
-                title: Text("Uploaded Beats"),
-                subtitle: Text("Manage and edit your beats"),
-              ),
-            ),
-
-            Card(
-              child: ListTile(
-                leading: Icon(Icons.bar_chart),
-                title: Text("Earnings Overview"),
-                subtitle: Text("View sales and revenue"),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

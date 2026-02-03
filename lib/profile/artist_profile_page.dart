@@ -48,7 +48,7 @@ class _ArtistProfilePageState
     // 🎵 FETCH BEATS
     List<BeatModel> beats = user.role == "producer"
         ? BeatStore.getBeatsByProducer(user.userId)
-        : BeatStore.getAllBeats(); // dummy for buyer
+        : BeatStore.beats;// dummy for buyer
 
     return Scaffold(
       appBar: AppBar(

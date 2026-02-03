@@ -95,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
 
                 const SizedBox(height: 15),
 
-                // 👤 ROLE SELECT
+                // 👤 ROLE SELECT (FIXED ALIGNMENT)
                 DropdownButtonFormField<String>(
                   value: _selectedRole,
                   items: const [
@@ -115,6 +115,11 @@ class _LoginPageState extends State<LoginPage> {
                   },
                   decoration: const InputDecoration(
                     labelText: "Login as",
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 16,
+                    ),
                   ),
                 ),
 

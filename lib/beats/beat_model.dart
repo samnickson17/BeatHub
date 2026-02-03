@@ -8,6 +8,7 @@ class BeatModel {
   final double price;
   final String description;
   final String? coverArtPath;
+  final String? audioPath;
 
   BeatModel({
     required this.id,
@@ -19,5 +20,6 @@ class BeatModel {
     required this.price,
     required this.description,
     this.coverArtPath,
+    this.audioPath,
   });
 }

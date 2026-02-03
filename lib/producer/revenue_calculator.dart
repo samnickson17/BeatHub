@@ -65,7 +65,7 @@ class _RevenueCalculatorPageState extends State<RevenueCalculatorPage> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              color: Colors.green.shade50,
+              color: Colors.deepPurple.shade900,
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -77,13 +77,17 @@ class _RevenueCalculatorPageState extends State<RevenueCalculatorPage> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
                     SizedBox(height: 6),
                     Text(
                       "Know your exact earnings before publishing your beat. "
                       "No hidden cuts or surprises.",
-                      style: TextStyle(fontSize: 14),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
                     ),
                   ],
                 ),

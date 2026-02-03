@@ -21,7 +21,7 @@ class HomePage extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              color: Colors.deepPurple.shade50,
+              color: Colors.deepPurple.shade900,
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -32,12 +32,16 @@ class HomePage extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
                     SizedBox(height: 6),
                     Text(
                       "Test your rap on beats before purchasing and understand license usage clearly.",
-                      style: TextStyle(fontSize: 14),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
                     ),
                   ],
                 ),

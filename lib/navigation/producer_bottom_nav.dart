@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-// Existing pages
+// Pages
 import '../producer/producer_home_page.dart';
-import '../beats/beat_list_page.dart';
 import '../producer/upload_beat_page.dart';
 import '../producer/revenue_calculator.dart';
+import '../profile/producer_profile_page.dart';
 
 class ProducerBottomNav extends StatefulWidget {
   const ProducerBottomNav({super.key});
@@ -18,15 +18,13 @@ class _ProducerBottomNavState extends State<ProducerBottomNav> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = const [
-    ProducerHomePage(),      // 🏠
-    BeatListPage(),          // 🎵 My Beats
-    UploadBeatPage(),        // ➕ Upload
-    RevenueCalculatorPage(), // 📊 Revenue
-    _ProducerProfilePlaceholder(), // 👤
+    ProducerHomePage(),
+    UploadBeatPage(),
+    RevenueCalculatorPage(),
+    ProducerProfilePage(),
   ];
 
   void _onTabTapped(int index) {
-    // All tabs are valid for Producer
     setState(() {
       _currentIndex = index;
     });
@@ -36,7 +34,6 @@ class _ProducerBottomNavState extends State<ProducerBottomNav> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _pages[_currentIndex],
-
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _currentIndex,
@@ -44,43 +41,21 @@ class _ProducerBottomNavState extends State<ProducerBottomNav> {
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
-            label: "",
+            label: "Home",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.library_music),
-            label: "",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_box),
-            label: "",
+            label: "Upload",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.bar_chart),
-            label: "",
+            label: "Revenue",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
-            label: "",
+            label: "Profile",
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ---------------- PLACEHOLDER ----------------
-
-class _ProducerProfilePlaceholder extends StatelessWidget {
-  const _ProducerProfilePlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text(
-          "Producer Profile (Coming Soon)",
-          style: TextStyle(fontSize: 20),
-        ),
       ),
     );
   }

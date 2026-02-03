@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../beats/beat_model.dart';
+import '../beats/beat_store.dart';
 
 class UploadBeatPage extends StatefulWidget {
   const UploadBeatPage({super.key});
@@ -10,32 +12,61 @@ class UploadBeatPage extends StatefulWidget {
 class _UploadBeatPageState extends State<UploadBeatPage> {
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _genreController = TextEditingController();
-  final TextEditingController _bpmController = TextEditingController();
-  final TextEditingController _priceController = TextEditingController();
+  final _titleController = TextEditingController();
+  final _genreController = TextEditingController();
+  final _bpmController = TextEditingController();
+  final _priceController = TextEditingController();
+  final _descriptionController = TextEditingController();
 
-  String _selectedLicense = "Basic";
+  // 🖼️🎵 Dummy selected files
+  String? _selectedCoverArt;
+  String? _selectedAudioFile;
 
-  void _submitBeat() {
-    if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Beat uploaded successfully (demo)"),
-        ),
-      );
-
-      _formKey.currentState!.reset();
-    }
+  void _pickCoverArt() {
+    setState(() {
+      _selectedCoverArt = "cover_art.jpg";
+    });
   }
 
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _genreController.dispose();
-    _bpmController.dispose();
-    _priceController.dispose();
-    super.dispose();
+  void _pickAudioFile() {
+    setState(() {
+      _selectedAudioFile = "beat_audio.mp3";
+    });
+  }
+
+  void _submitBeat() {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedAudioFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please select an audio file"),
+        ),
+      );
+      return;
+    }
+
+    final newBeat = BeatModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: _titleController.text,
+      producer: "Current Producer",
+      producerId: "producer_001",
+      genre: _genreController.text,
+      bpm: int.parse(_bpmController.text),
+      price: double.parse(_priceController.text),
+      description: _descriptionController.text,
+      coverArtPath: _selectedCoverArt,
+      audioPath: _selectedAudioFile,
+    );
+
+    BeatStore.addBeat(newBeat);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Beat uploaded successfully"),
+      ),
+    );
+
+    Navigator.pop(context);
   }
 
   @override
@@ -46,95 +77,103 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
           child: Column(
             children: [
-              // Beat Title
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: "Beat Title",
-                ),
-                validator: (value) =>
-                    value == null || value.isEmpty ? "Required" : null,
-              ),
-
-              const SizedBox(height: 16),
-
-              // Genre
-              TextFormField(
-                controller: _genreController,
-                decoration: const InputDecoration(
-                  labelText: "Genre",
-                ),
-                validator: (value) =>
-                    value == null || value.isEmpty ? "Required" : null,
-              ),
-
-              const SizedBox(height: 16),
-
-              // BPM
-              TextFormField(
+              _field(controller: _titleController, label: "Beat Title"),
+              _field(controller: _genreController, label: "Genre"),
+              _field(
                 controller: _bpmController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "BPM",
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) return "Required";
-                  if (int.tryParse(value) == null) return "Enter valid BPM";
-                  return null;
-                },
+                label: "BPM",
+                isNumber: true,
               ),
-
-              const SizedBox(height: 16),
-
-              // Price
-              TextFormField(
+              _field(
                 controller: _priceController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "Price (₹)",
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) return "Required";
-                  if (double.tryParse(value) == null) return "Enter valid price";
-                  return null;
-                },
+                label: "Price (₹)",
+                isNumber: true,
+              ),
+              _field(
+                controller: _descriptionController,
+                label: "Description",
+                maxLines: 3,
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
 
-              // License Type
-              DropdownButtonFormField<String>(
-                value: _selectedLicense,
-                decoration: const InputDecoration(
-                  labelText: "License Type",
-                ),
-                items: const [
-                  DropdownMenuItem(value: "Basic", child: Text("Basic")),
-                  DropdownMenuItem(value: "Premium", child: Text("Premium")),
-                  DropdownMenuItem(value: "Exclusive", child: Text("Exclusive")),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _selectedLicense = value!;
-                  });
-                },
+              // 🖼️ COVER ART PICKER
+              _fileButton(
+                icon: Icons.image,
+                label: "Select Cover Art",
+                selectedFile: _selectedCoverArt,
+                onTap: _pickCoverArt,
+              ),
+
+              // 🎵 AUDIO PICKER
+              _fileButton(
+                icon: Icons.music_note,
+                label: "Select Audio File",
+                selectedFile: _selectedAudioFile,
+                onTap: _pickAudioFile,
               ),
 
               const SizedBox(height: 30),
 
-              // Upload Button
-              ElevatedButton(
-                onPressed: _submitBeat,
-                child: const Text("Upload Beat"),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _submitBeat,
+                  child: const Text("Upload Beat"),
+                ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _field({
+    required TextEditingController controller,
+    required String label,
+    bool isNumber = false,
+    int maxLines = 1,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: TextFormField(
+        controller: controller,
+        maxLines: maxLines,
+        keyboardType:
+            isNumber ? TextInputType.number : TextInputType.text,
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return "$label is required";
+          }
+          return null;
+        },
+        decoration: InputDecoration(labelText: label),
+      ),
+    );
+  }
+
+  Widget _fileButton({
+    required IconData icon,
+    required String label,
+    required String? selectedFile,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: OutlinedButton.icon(
+        icon: Icon(icon),
+        label: Text(
+          selectedFile == null
+              ? label
+              : "$label ✔ (${selectedFile})",
+        ),
+        onPressed: onTap,
       ),
     );
   }
