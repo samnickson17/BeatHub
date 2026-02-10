@@ -2,19 +2,31 @@ import 'package:flutter/material.dart';
 import '../beats/beat_store.dart';
 import '../beats/beat_detail_page.dart';
 import '../producer/revenue_calculator.dart';
+import 'follow_store.dart';
+import '../core/routes.dart';
 
-class ProducerProfilePage extends StatelessWidget {
+class ProducerProfilePage extends StatefulWidget {
   const ProducerProfilePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // 🔐 Dummy logged-in producer info
-    const String producerId = "producer_001";
-    const String producerName = "Producer Sam";
-    const String username = "@producersam";
+  State<ProducerProfilePage> createState() =>
+      _ProducerProfilePageState();
+}
 
+class _ProducerProfilePageState
+    extends State<ProducerProfilePage> {
+  // 🔐 Dummy logged-in producer info
+  final String producerId = "producer_001";
+  final String producerName = "Producer Sam";
+  final String username = "@producersam";
+
+  @override
+  Widget build(BuildContext context) {
     final producerBeats =
         BeatStore.getBeatsByProducer(producerId);
+
+    final isFollowing =
+        FollowStore.isFollowing(producerId);
 
     return Scaffold(
       appBar: AppBar(
@@ -40,17 +52,35 @@ class ProducerProfilePage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Text(
+                  Text(
                     producerName,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     username,
-                    style: TextStyle(color: Colors.grey),
+                    style:
+                        const TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ❤️ FOLLOW BUTTON
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        if (isFollowing) {
+                          FollowStore.unfollow(producerId);
+                        } else {
+                          FollowStore.follow(producerId);
+                        }
+                      });
+                    },
+                    child: Text(
+                      isFollowing ? "Unfollow" : "Follow",
+                    ),
                   ),
                 ],
               ),
@@ -60,14 +90,23 @@ class ProducerProfilePage extends StatelessWidget {
 
             // 📊 STATS
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment:
+                  MainAxisAlignment.spaceEvenly,
               children: [
                 _statItem(
                   label: "Beats",
                   value: producerBeats.length.toString(),
                 ),
-                _statItem(label: "Followers", value: "120"),
-                _statItem(label: "Following", value: "85"),
+                _statItem(
+                  label: "Followers",
+                  value: FollowStore.followersCount(
+                          producerId)
+                      .toString(),
+                ),
+                _statItem(
+                  label: "Following",
+                  value: "85",
+                ),
               ],
             ),
 
@@ -78,7 +117,8 @@ class ProducerProfilePage extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.bar_chart),
-                label: const Text("Revenue Calculator"),
+                label:
+                    const Text("Revenue Calculator"),
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -103,13 +143,12 @@ class ProducerProfilePage extends StatelessWidget {
 
             const SizedBox(height: 10),
 
-            // 🎹 BEATS GRID / LIST
+            // 🎹 BEATS LIST
             producerBeats.isEmpty
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Text("No beats uploaded yet"),
-                    ),
+                ? const Padding(
+                    padding: EdgeInsets.all(20),
+                    child:
+                        Text("No beats uploaded yet"),
                   )
                 : ListView.builder(
                     shrinkWrap: true,
@@ -117,11 +156,12 @@ class ProducerProfilePage extends StatelessWidget {
                         const NeverScrollableScrollPhysics(),
                     itemCount: producerBeats.length,
                     itemBuilder: (context, index) {
-                      final beat = producerBeats[index];
+                      final beat =
+                          producerBeats[index];
 
                       return Card(
-                        margin:
-                            const EdgeInsets.only(bottom: 10),
+                        margin: const EdgeInsets.only(
+                            bottom: 10),
                         child: ListTile(
                           leading: const Icon(
                               Icons.music_note),
@@ -134,7 +174,8 @@ class ProducerProfilePage extends StatelessWidget {
                               context,
                               MaterialPageRoute(
                                 builder: (_) =>
-                                    BeatDetailPage(beat: beat),
+                                    BeatDetailPage(
+                                        beat: beat),
                               ),
                             );
                           },
@@ -142,6 +183,24 @@ class ProducerProfilePage extends StatelessWidget {
                       );
                     },
                   ),
+
+            const SizedBox(height: 30),
+
+            // 🚪 LOGOUT BUTTON
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.logout),
+                label: const Text("Logout"),
+                onPressed: () {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    AppRoutes.login,
+                    (route) => false,
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
@@ -164,7 +223,8 @@ class ProducerProfilePage extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(color: Colors.grey),
+          style:
+              const TextStyle(color: Colors.grey),
         ),
       ],
     );

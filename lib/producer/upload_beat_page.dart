@@ -1,4 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+
 import '../beats/beat_model.dart';
 import '../beats/beat_store.dart';
 
@@ -18,25 +22,40 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
   final _priceController = TextEditingController();
   final _descriptionController = TextEditingController();
 
-  // 🖼️🎵 Dummy selected files
-  String? _selectedCoverArt;
-  String? _selectedAudioFile;
+  // ✅ REAL FILE PATHS
+  String? _coverArtPath;
+  String? _audioFilePath;
 
-  void _pickCoverArt() {
-    setState(() {
-      _selectedCoverArt = "cover_art.jpg";
-    });
+  // 🖼️ PICK COVER ART (IMAGE)
+  Future<void> _pickCoverArt() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+    );
+
+    if (result != null && result.files.single.path != null) {
+      setState(() {
+        _coverArtPath = result.files.single.path!;
+      });
+    }
   }
 
-  void _pickAudioFile() {
-    setState(() {
-      _selectedAudioFile = "beat_audio.mp3";
-    });
+  // 🎵 PICK AUDIO FILE
+  Future<void> _pickAudioFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.audio,
+    );
+
+    if (result != null && result.files.single.path != null) {
+      setState(() {
+        _audioFilePath = result.files.single.path!;
+      });
+    }
   }
 
   void _submitBeat() {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedAudioFile == null) {
+
+    if (_audioFilePath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Please select an audio file"),
@@ -45,17 +64,21 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
       return;
     }
 
+    final int bpm = int.tryParse(_bpmController.text) ?? 0;
+    final double price =
+        double.tryParse(_priceController.text) ?? 0;
+
     final newBeat = BeatModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: _titleController.text,
-      producer: "Current Producer",
+      producer: "Producer Sam",
       producerId: "producer_001",
       genre: _genreController.text,
-      bpm: int.parse(_bpmController.text),
-      price: double.parse(_priceController.text),
+      bpm: bpm,
+      price: price,
       description: _descriptionController.text,
-      coverArtPath: _selectedCoverArt,
-      audioPath: _selectedAudioFile,
+      coverArtPath: _coverArtPath,
+      audioPath: _audioFilePath!,// ✅ REAL AUDIO PATH
     );
 
     BeatStore.addBeat(newBeat);
@@ -82,40 +105,40 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
           key: _formKey,
           child: Column(
             children: [
-              _field(controller: _titleController, label: "Beat Title"),
-              _field(controller: _genreController, label: "Genre"),
+              _field(_titleController, "Beat Title"),
+              _field(_genreController, "Genre"),
+              _field(_bpmController, "BPM", isNumber: true),
+              _field(_priceController, "Price (₹)", isNumber: true),
               _field(
-                controller: _bpmController,
-                label: "BPM",
-                isNumber: true,
-              ),
-              _field(
-                controller: _priceController,
-                label: "Price (₹)",
-                isNumber: true,
-              ),
-              _field(
-                controller: _descriptionController,
-                label: "Description",
+                _descriptionController,
+                "Description",
                 maxLines: 3,
               ),
 
               const SizedBox(height: 20),
 
-              // 🖼️ COVER ART PICKER
-              _fileButton(
-                icon: Icons.image,
-                label: "Select Cover Art",
-                selectedFile: _selectedCoverArt,
-                onTap: _pickCoverArt,
+              // 🖼️ COVER ART
+              OutlinedButton.icon(
+                icon: const Icon(Icons.image),
+                label: Text(
+                  _coverArtPath == null
+                      ? "Select Cover Art"
+                      : "Cover Art Selected ✔",
+                ),
+                onPressed: _pickCoverArt,
               ),
 
-              // 🎵 AUDIO PICKER
-              _fileButton(
-                icon: Icons.music_note,
-                label: "Select Audio File",
-                selectedFile: _selectedAudioFile,
-                onTap: _pickAudioFile,
+              const SizedBox(height: 12),
+
+              // 🎵 AUDIO FILE
+              OutlinedButton.icon(
+                icon: const Icon(Icons.music_note),
+                label: Text(
+                  _audioFilePath == null
+                      ? "Select Audio File"
+                      : "Audio File Selected ✔",
+                ),
+                onPressed: _pickAudioFile,
               ),
 
               const SizedBox(height: 30),
@@ -134,9 +157,9 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
     );
   }
 
-  Widget _field({
-    required TextEditingController controller,
-    required String label,
+  Widget _field(
+    TextEditingController controller,
+    String label, {
     bool isNumber = false,
     int maxLines = 1,
   }) {
@@ -147,33 +170,11 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
         maxLines: maxLines,
         keyboardType:
             isNumber ? TextInputType.number : TextInputType.text,
-        validator: (value) {
-          if (value == null || value.isEmpty) {
-            return "$label is required";
-          }
-          return null;
-        },
+        validator: (value) =>
+            value == null || value.isEmpty
+                ? "$label is required"
+                : null,
         decoration: InputDecoration(labelText: label),
-      ),
-    );
-  }
-
-  Widget _fileButton({
-    required IconData icon,
-    required String label,
-    required String? selectedFile,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: OutlinedButton.icon(
-        icon: Icon(icon),
-        label: Text(
-          selectedFile == null
-              ? label
-              : "$label ✔ (${selectedFile})",
-        ),
-        onPressed: onTap,
       ),
     );
   }

@@ -1,7 +1,34 @@
 import 'package:flutter/material.dart';
+import '../beats/beat_store.dart';
+import '../beats/beat_detail_page.dart';
+import '../beats/beat_model.dart';
 
-class ArtistSearchPage extends StatelessWidget {
+class ArtistSearchPage extends StatefulWidget {
   const ArtistSearchPage({super.key});
+
+  @override
+  State<ArtistSearchPage> createState() =>
+      _ArtistSearchPageState();
+}
+
+class _ArtistSearchPageState extends State<ArtistSearchPage> {
+  final TextEditingController _searchController =
+      TextEditingController();
+
+  List<BeatModel> _results = [];
+
+  void _onSearchChanged(String query) {
+    final allBeats = BeatStore.beats;
+
+    setState(() {
+      _results = allBeats.where((beat) {
+        final q = query.toLowerCase();
+        return beat.title.toLowerCase().contains(q) ||
+            beat.genre.toLowerCase().contains(q) ||
+            beat.producer.toLowerCase().contains(q);
+      }).toList();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,10 +42,13 @@ class ArtistSearchPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 🔍 Search Field
+            // 🔍 SEARCH FIELD
             TextField(
+              controller: _searchController,
+              onChanged: _onSearchChanged,
               decoration: InputDecoration(
-                hintText: "Search by genre, mood, or producer",
+                hintText:
+                    "Search by title, genre, or producer",
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -28,33 +58,8 @@ class ArtistSearchPage extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // 🎛️ Filters
             const Text(
-              "Popular Filters",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            Wrap(
-              spacing: 8,
-              children: const [
-                Chip(label: Text("Drill")),
-                Chip(label: Text("Trap")),
-                Chip(label: Text("LoFi")),
-                Chip(label: Text("Chill")),
-                Chip(label: Text("120–140 BPM")),
-              ],
-            ),
-
-            const SizedBox(height: 30),
-
-            // 🎵 Search Results (Dummy)
-            const Text(
-              "Suggested Beats",
+              "Results",
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -64,22 +69,43 @@ class ArtistSearchPage extends StatelessWidget {
             const SizedBox(height: 10),
 
             Expanded(
-              child: ListView(
-                children: const [
-                  ListTile(
-                    leading: Icon(Icons.music_note),
-                    title: Text("Drill Vibes"),
-                    subtitle: Text("140 BPM • Drill"),
-                    trailing: Icon(Icons.arrow_forward_ios),
-                  ),
-                  ListTile(
-                    leading: Icon(Icons.music_note),
-                    title: Text("LoFi Chill"),
-                    subtitle: Text("90 BPM • LoFi"),
-                    trailing: Icon(Icons.arrow_forward_ios),
-                  ),
-                ],
-              ),
+              child: _results.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "No matching beats found",
+                        style:
+                            TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _results.length,
+                      itemBuilder: (context, index) {
+                        final beat = _results[index];
+
+                        return ListTile(
+                          leading:
+                              const Icon(Icons.music_note),
+                          title: Text(beat.title),
+                          subtitle: Text(
+                            "${beat.genre} • ${beat.bpm} BPM\nby ${beat.producer}",
+                          ),
+                          trailing: const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 16),
+                          isThreeLine: true,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    BeatDetailPage(
+                                        beat: beat),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
             ),
           ],
         ),
