@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1037602740027",
+    "project_id": "beathub-35769",
+    "storage_bucket": "beathub-35769.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1037602740027:android:8e4b833c02479947b3091e",
+        "android_client_info": {
+          "package_name": "com.example.beathub_final"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4ZIwPgdaQsEMwpZuqzpfrLuf5NHB93qE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

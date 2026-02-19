@@ -1,0 +1,352 @@
+Read [](file:///c%3A/Projects/BeatHub/lib/beats/beat_detail_page.dart#1-1), lines 1 to 80
+
+Read [](file:///c%3A/Projects/BeatHub/lib/profile/profile_gate.dart)
+
+Read [](file:///c%3A/Projects/BeatHub/lib/payment/stripe_payment_page.dart#1-1), lines 1 to 80
+
+Here is the final user flow for BeatHub as the definitive blueprint for the product:
+
+---
+
+## BeatHub — Final User Flow
+
+**Platform**: Flutter (Android, iOS, Web)
+**Roles**: Buyer (Artist), Producer, Admin
+**Backend**: Express.js at `http://localhost:5000` via `ApiBackend`
+**Auth**: JWT stored in `shared_preferences`, restored on launch
+
+---
+
+## 0. App Launch
+
+```
+App Opens
+    │
+    ├── JWT found in storage → validate token with server
+    │       ├── Valid → skip to Role Home (Buyer Nav / Producer Nav)
+    │       └── Expired/Invalid → clear token → go to Login
+    │
+    └── No JWT → Login Page
+```
+
+---
+
+## 1. Auth Flow
+
+### Login
+```
+Login Page
+    │
+    ├── Enter: Email, Password
+    ├── Select Role: Buyer | Producer
+    ├── Tap Login
+    │       ├── Loading spinner shown
+    │       ├── POST /api/auth/login
+    │       ├── Error → show error SnackBar, stay on page
+    │       └── Success → save JWT → route to Role Home
+    │
+    └── "Don't have an account?" → Signup Page
+```
+
+### Signup
+```
+Signup Page
+    │
+    ├── Enter: Username, Email, Password, Confirm Password
+    ├── Select Role: Buyer | Producer
+    ├── Tap Sign Up
+    │       ├── Client-side validation (AuthValidator)
+    │       ├── POST /api/auth/signup
+    │       ├── Error → show error SnackBar, stay on page
+    │       └── Success → save JWT → route to Role Home
+    │
+    └── "Already have an account?" → Login Page
+```
+
+---
+
+## 2. Buyer Flow
+
+### Buyer Bottom Nav (5 tabs)
+`Home` | `Beats` | `Rap Preview` | `Purchases` | `Profile`
+
+---
+
+### Tab 1 — Home Feed
+```
+Home Page (2 tabs: Discover | Following)
+    │
+    ├── Discover Tab
+    │       └── All beats from GET /api/beats
+    │
+    ├── Following Tab
+    │       └── Beats only from producers the user follows
+    │               (filter BeatStore by FollowStore.getFollowing(userId))
+    │
+    └── Tap a Beat Card → Beat Detail Page
+```
+
+### Beat Detail Page
+```
+Beat Detail Page (passed BeatModel)
+    │
+    ├── Display: Title, Producer name (tappable), Genre, BPM, Description
+    ├── Play/Pause preview button (full beat audio)
+    ├── License selector: Basic | Premium | Exclusive (shows price per tier)
+    ├── "View License Info" link → License Explain Page
+    ├── "Rap Over This Beat" button → Rap Record Page
+    │
+    ├── "Buy" button (only if not already purchased)
+    │       └── → Payment Page (with selected license + price)
+    │
+    └── "Download" button (only if already purchased)
+            └── Save audio file to device via beat_download_helper
+```
+
+### Payment Page
+```
+Payment Page (beat + license passed in)
+    │
+    ├── Display: Beat title, License type, Amount (Rs X)
+    ├── Payment method toggle: Card | UPI
+    │
+    ├── Card path:
+    │       ├── Enter: Card Number, Expiry, CVV
+    │       ├── Validate fields
+    │       └── POST /api/payments/charge (Stripe backend)
+    │
+    ├── UPI path:
+    │       └── Display real UPI QR code (generated from amount + beat ID)
+    │
+    ├── Processing spinner shown
+    ├── Failure → show error, stay on page
+    └── Success
+            ├── POST /api/purchases (save purchase server-side)
+            ├── Add to local PurchasedBeatsStore
+            └── Navigate back to Beat Detail → show Download button
+```
+
+---
+
+### Tab 2 — Beat Browser
+```
+Beat List Page
+    │
+    ├── Search bar (filter by title, genre, producer name)
+    ├── Genre filter chips
+    ├── Beat cards (title, producer, BPM, basic price)
+    └── Tap card → Beat Detail Page
+```
+
+---
+
+### Tab 3 — Rap Preview
+```
+Rap Preview Page
+    │
+    ├── "Select a Beat" button → Select Beat Page
+    │       └── List of all beats → tap to select → return to Rap Preview
+    │
+    ├── Selected Beat displayed with Play/Stop button (beat plays in background)
+    │
+    ├── Record button
+    │       ├── Request microphone permission
+    │       ├── Recording in progress — timer shown
+    │       └── Stop recording
+    │
+    ├── After recording:
+    │       ├── Play button — listen back to recorded rap
+    │       ├── Re-record button — discard and try again
+    │       └── Save button — save recording to device via path_provider
+    │
+    └── Beat continues playing independently of recording playback
+```
+
+---
+
+### Tab 4 — Purchases
+```
+Purchased Beats Page
+    │
+    ├── List of purchased beats (from GET /api/purchases/:userId)
+    │       └── Beat title, license type, purchase date
+    │
+    └── Tap a purchase → Purchased Beat License Detail Page
+            ├── License type + rights granted
+            ├── Transaction ID
+            └── Download button
+```
+
+---
+
+### Tab 5 — Buyer Profile
+
+```
+ProfileGate
+    │
+    ├── Profile not set up → Create Artist Profile Page
+    │       ├── Enter: Display name, Bio, Genre (multi-select)
+    │       ├── Pick profile picture
+    │       └── Save → POST /api/profiles → Artist Profile Page
+    │
+    └── Profile exists → Artist Profile Page
+            ├── Avatar, Name, Bio, Genres, Follower/Following count
+            ├── "Edit Profile" → Edit Artist Profile Page
+            │       └── Update fields → PUT /api/profiles/:id
+            │
+            ├── "Followers" count tap → Follow List Page (Followers)
+            ├── "Following" count tap → Follow List Page (Following)
+            │       └── Both show real display names from ProfileStore
+            │
+            └── "Logout" button
+                    ├── Clear JWT from storage
+                    ├── Clear session stores
+                    └── Navigate to Login Page
+```
+
+---
+
+### Public / Other Profile Page
+```
+Tapping a Producer name (from Beat Detail, Search, etc.)
+    │
+    └── Public Profile Page (userId passed)
+            ├── Avatar, Name, Bio, Genre, Beats count, Followers count
+            ├── Follow / Unfollow button
+            │       ├── POST /api/follow or DELETE /api/follow
+            │       └── Updates FollowStore locally
+            │
+            └── Beat grid — all beats by that producer
+                    └── Tap → Beat Detail Page
+```
+
+---
+
+### Artist Search Page
+```
+Search icon (accessible from Home or Beat List app bar)
+    │
+    ├── Search bar — query sent to GET /api/search?q=...
+    ├── Results show both Artists and Producers
+    └── Tap result → Public Profile Page
+```
+
+---
+
+## 3. Producer Flow
+
+### Producer Bottom Nav (5 tabs)
+`Home` | `Upload` | `Insights` | `Calculator` | `Profile`
+
+---
+
+### Tab 1 — Producer Home
+```
+Producer Home Page
+    │
+    ├── "My Beats" list — only beats where producerId == logged-in user's ID
+    │       ├── GET /api/beats?producerId=:id
+    │       └── Beat card with Edit button
+    │
+    └── Tap Edit → Edit Beat Page
+            ├── Pre-filled form (title, genre, BPM, prices, description)
+            ├── Replace audio file or cover art (optional)
+            └── Save → PUT /api/beats/:id → refresh list
+```
+
+---
+
+### Tab 2 — Upload Beat
+```
+Upload Beat Page
+    │
+    ├── Form: Title, Genre, BPM, Description
+    ├── Price fields: Basic, Premium, Exclusive license prices
+    ├── Pick Cover Art (image file)
+    ├── Pick Audio File (audio file)
+    │
+    ├── Submit
+    │       ├── producerName and producerId taken from logged-in session
+    │       ├── Upload audio + cover to server (multipart POST /api/beats)
+    │       └── On success → navigate to Producer Home, refresh beat list
+    │
+    └── Validation: all required fields, valid BPM, prices > 0
+```
+
+---
+
+### Tab 3 — Insights
+```
+Producer Insights Page
+    │
+    ├── Total earnings (sum of purchases for this producer's beats)
+    ├── Total beats sold (count of purchases)
+    ├── Per-beat breakdown: Beat title → # sales → revenue
+    └── All data from GET /api/insights/:producerId
+```
+
+---
+
+### Tab 4 — Revenue Calculator
+```
+Revenue Calculator Page
+    │
+    ├── Input: Basic price, Premium price, Exclusive price
+    ├── Input: Expected sales per tier
+    └── Output: Estimated monthly/total revenue (client-side math, no API)
+```
+
+---
+
+### Tab 5 — Producer Profile
+```
+Producer Profile Page
+    │
+    ├── Avatar, Name, Bio, Genre tags, Follower count, Beat count
+    ├── "Edit Profile" → Edit Producer Profile Page
+    │       └── Update fields → PUT /api/profiles/:id
+    │
+    └── "Logout" → clear JWT → Login Page
+```
+
+---
+
+## 4. Admin Flow
+
+```
+Admin Dashboard (route: /admin — protected, only accessible if role == admin)
+    │
+    ├── Manage Users
+    │       ├── List all users (GET /api/admin/users)
+    │       ├── View user detail
+    │       └── Delete / suspend user (DELETE /api/admin/users/:id)
+    │
+    ├── Manage Beats
+    │       ├── List all beats pending approval + published
+    │       ├── Approve beat → visible in marketplace
+    │       └── Remove beat (DELETE /api/admin/beats/:id)
+    │
+    └── View Transactions
+            ├── List all purchases with buyer, beat, license, amount, date
+            └── GET /api/admin/transactions
+```
+
+---
+
+## 5. Cross-Cutting Concerns
+
+| Concern | Decision |
+|---|---|
+| **Auth persistence** | JWT saved to `shared_preferences`, validated on launch |
+| **Error handling** | Every async call wrapped in `try/catch`; errors shown via SnackBar |
+| **Loading states** | Every async action shows `CircularProgressIndicator` |
+| **Backend** | `AppBackend` switches to `ApiBackend` (env flag or direct swap) |
+| **Data persistence** | All stores backed by API calls; local stores only as cache |
+| **License Explain** | Linked from Beat Detail page |
+| **Named routes** | All pages added to `AppRoutes` |
+| **Buyer nav labels** | All 5 tab labels filled in |
+| **app.dart** | Delete — main.dart is the single entry point |
+
+---
+
+This flow covers every screen, every navigation path, every async action, and every role. Reference this as the single source of truth for all implementation decisions going forward.

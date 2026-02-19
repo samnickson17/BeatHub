@@ -15,7 +15,7 @@ class BeatHubApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
 
       // Theme
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.darkTheme,
 
       // Initial Screen
       initialRoute: AppRoutes.login,
@@ -28,10 +28,7 @@ class BeatHubApp extends StatelessWidget {
         return MaterialPageRoute(
           builder: (_) => const Scaffold(
             body: Center(
-              child: Text(
-                "Page not found",
-                style: TextStyle(fontSize: 18),
-              ),
+              child: Text("Page not found", style: TextStyle(fontSize: 18)),
             ),
           ),
         );
