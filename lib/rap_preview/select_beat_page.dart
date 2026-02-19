@@ -1,65 +1,104 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import '../beats/beat_store.dart';
 import '../beats/beat_model.dart';
 import 'rap_record_page.dart';
 
-class SelectBeatPage extends StatelessWidget {
+class SelectBeatPage extends StatefulWidget {
   const SelectBeatPage({super.key});
 
-  List<BeatModel> get beats => [
-        BeatModel(
-          id: "1",
-          title: "Smoothy Drill",
-          producer: "Producer Sam",
-          producerId: "producer_001",
-          genre: "Drill",
-          bpm: 140,
-          price: 0,
-          description: "Drill demo beat",
-          coverArtPath: null,
-          audioPath: "assets/audio/smoothy_drill.wav",
-        ),
-        BeatModel(
-          id: "2",
-          title: "You & Me",
-          producer: "Producer Sam",
-          producerId: "producer_001",
-          genre: "LoFi",
-          bpm: 90,
-          price: 0,
-          description: "LoFi demo beat",
-          coverArtPath: null,
-          audioPath: "assets/audio/you_and_me.wav",
-        ),
-      ];
+  @override
+  State<SelectBeatPage> createState() => _SelectBeatPageState();
+}
+
+class _SelectBeatPageState extends State<SelectBeatPage> {
+  final AudioPlayer _player = AudioPlayer();
+  String? _playingBeatId;
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  Future<void> _togglePreview(BeatModel beat) async {
+    final isPlaying = _playingBeatId == beat.id;
+    if (isPlaying) {
+      await _player.stop();
+      if (mounted) {
+        setState(() => _playingBeatId = null);
+      }
+      return;
+    }
+
+    await _player.stop();
+    if (beat.audioPath.startsWith('assets/')) {
+      await _player.play(
+        AssetSource(beat.audioPath.replaceFirst('assets/', '')),
+      );
+    } else {
+      await _player.play(DeviceFileSource(beat.audioPath));
+    }
+
+    if (mounted) {
+      setState(() => _playingBeatId = beat.id);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final List<BeatModel> beats = BeatStore.beats;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Select Beat"),
+        title: const Text('Select Beat'),
         centerTitle: true,
       ),
-      body: ListView.builder(
-        itemCount: beats.length,
-        itemBuilder: (context, index) {
-          final beat = beats[index];
+      body: beats.isEmpty
+          ? const Center(
+              child: Text('No beats available for rap preview'),
+            )
+          : ListView.builder(
+              itemCount: beats.length,
+              itemBuilder: (context, index) {
+                final beat = beats[index];
+                final isPlaying = _playingBeatId == beat.id;
 
-          return ListTile(
-            leading: const Icon(Icons.music_note),
-            title: Text(beat.title),
-            subtitle: Text("${beat.genre} • ${beat.bpm} BPM"),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => RapRecordPage(selectedBeat: beat),
-                ),
-              );
-            },
-          );
-        },
-      ),
+                return Card(
+                  margin: const EdgeInsets.all(12),
+                  child: ListTile(
+                    leading: const Icon(Icons.music_note),
+                    title: Text(beat.title),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${beat.genre} - ${beat.bpm} BPM'),
+                        const SizedBox(height: 6),
+                        TextButton.icon(
+                          onPressed: () => _togglePreview(beat),
+                          icon: Icon(
+                            isPlaying ? Icons.stop : Icons.play_arrow,
+                            size: 18,
+                          ),
+                          label: Text(isPlaying ? 'Stop' : 'Listen'),
+                        ),
+                      ],
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    isThreeLine: true,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              RapRecordPage(selectedBeat: beat),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
     );
   }
 }

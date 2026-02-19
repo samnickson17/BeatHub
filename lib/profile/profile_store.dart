@@ -1,53 +1,191 @@
+import '../backend/backend_contracts.dart';
 import 'user_profile_model.dart';
 
 class ProfileStore {
-  // 🔐 Current logged-in user profile
-  static UserProfile? currentUser;
+  static const String _fallbackUserId = "artist_001";
 
-  // 🌍 All profiles in app (dummy store for now)
-  static final List<UserProfile> _allProfiles = [];
+  static UserProfile? _currentUser;
 
-  /// Check if username already exists (Instagram-style)
-  static bool isUsernameTaken(String username) {
-    return _allProfiles.any(
+  // Generic app profile records (used by follow/feed/public pages).
+  static final Map<String, UserProfile> _profiles = {
+    "producer_001": UserProfile(
+      userId: "producer_001",
+      username: "producersam",
+      displayName: "Producer Sam",
+      bio: "Beat producer",
+      role: "producer",
+      profileImagePath: null,
+      profileCompleted: true,
+    ),
+    "producer_002": UserProfile(
+      userId: "producer_002",
+      username: "produceralex",
+      displayName: "Producer Alex",
+      bio: "LoFi and chill vibe beats",
+      role: "producer",
+      profileImagePath: null,
+      profileCompleted: true,
+    ),
+  };
+
+  // Artist-profile view model (used by artist profile/edit pages).
+  static final Map<String, ArtistProfile> _artistProfiles = {};
+
+  static String get currentUserId => _currentUser?.userId ?? _fallbackUserId;
+
+  static UserProfile? get currentUser => _currentUser;
+
+  static List<UserProfile> getAllProfiles() => _profiles.values.toList();
+
+  static bool isProfileCompleted(String userId) {
+    return _artistProfiles.containsKey(userId) ||
+        (_profiles[userId]?.profileCompleted ?? false);
+  }
+
+  static bool isUsernameTaken(String username, {String? excludeUserId}) {
+    final normalized = username.trim().toLowerCase();
+    return _profiles.values.any(
       (profile) =>
-          profile.username.toLowerCase() ==
-          username.toLowerCase(),
+          profile.userId != excludeUserId &&
+          profile.username.trim().toLowerCase() == normalized,
     );
   }
 
-  /// Save or update user profile
-  static void saveProfile(UserProfile profile) {
-    // Remove old profile if exists
-    _allProfiles.removeWhere(
-      (p) => p.userId == profile.userId,
-    );
+  static ArtistProfile? getProfile(String userId) {
+    final artist = _artistProfiles[userId];
+    if (artist != null) return artist;
 
-    _allProfiles.add(profile);
-    currentUser = profile;
+    final generic = _profiles[userId];
+    if (generic == null) return null;
+    return ArtistProfile(
+      userId: generic.userId,
+      name: generic.displayName,
+      username: generic.username,
+      bio: generic.bio,
+      profileImagePath: generic.profileImagePath,
+    );
   }
 
-  /// Get profile by username (for public profiles later)
-  static UserProfile? getProfileByUsername(
-      String username) {
-    try {
-      return _allProfiles.firstWhere(
-        (profile) =>
-            profile.username.toLowerCase() ==
-            username.toLowerCase(),
-      );
-    } catch (_) {
-      return null;
+  static UserProfile? getUserProfile(String userId) => _profiles[userId];
+
+  static void saveProfile(Object profile) {
+    if (profile is ArtistProfile) {
+      _saveArtistProfile(profile);
+      return;
+    }
+    if (profile is UserProfile) {
+      _saveUserProfile(profile);
+      return;
+    }
+    throw ArgumentError("Unsupported profile type: ${profile.runtimeType}");
+  }
+
+  static void setCurrentUserFromSession(
+    SessionUser session, {
+    String? username,
+    String? displayName,
+  }) {
+    final existing = _profiles[session.userId];
+    final resolvedUsername = (username != null && username.trim().isNotEmpty)
+        ? username.trim()
+        : existing?.username ?? _usernameFromEmail(session.email);
+    final resolvedName = (displayName != null && displayName.trim().isNotEmpty)
+        ? displayName.trim()
+        : existing?.displayName ?? resolvedUsername;
+    final resolvedRole =
+        session.role == AppUserRole.producer ? "producer" : "buyer";
+
+    final profile = UserProfile(
+      userId: session.userId,
+      username: resolvedUsername,
+      displayName: resolvedName,
+      bio: existing?.bio ?? "",
+      role: resolvedRole,
+      profileImagePath: existing?.profileImagePath,
+      profileCompleted: existing?.profileCompleted ?? false,
+    );
+    _saveUserProfile(profile);
+    _currentUser = _profiles[session.userId];
+  }
+
+  static void clearCurrentUser() {
+    _currentUser = null;
+  }
+
+  static void _saveArtistProfile(ArtistProfile artist) {
+    _artistProfiles[artist.userId] = artist;
+
+    final existing = _profiles[artist.userId];
+    final role = existing?.role ??
+        ((_currentUser?.userId == artist.userId) ? _currentUser!.role : "buyer");
+
+    final updated = UserProfile(
+      userId: artist.userId,
+      username: artist.username,
+      displayName: artist.name,
+      bio: artist.bio,
+      role: role,
+      profileImagePath: artist.profileImagePath,
+      profileCompleted: true,
+    );
+    _profiles[artist.userId] = updated;
+
+    if (_currentUser?.userId == artist.userId) {
+      _currentUser = updated;
     }
   }
 
-  /// Check if current user completed profile
-  static bool isProfileCompleted() {
-    return currentUser?.profileCompleted ?? false;
+  static void _saveUserProfile(UserProfile profile) {
+    _profiles[profile.userId] = profile;
+    _artistProfiles[profile.userId] = ArtistProfile(
+      userId: profile.userId,
+      name: profile.displayName,
+      username: profile.username,
+      bio: profile.bio,
+      profileImagePath: profile.profileImagePath,
+    );
+
+    if (_currentUser?.userId == profile.userId) {
+      _currentUser = profile;
+    }
   }
 
-  /// Debug helper (optional)
-  static List<UserProfile> getAllProfiles() {
-    return List.unmodifiable(_allProfiles);
+  static String _usernameFromEmail(String email) {
+    final localPart = email.split('@').first.trim().toLowerCase();
+    if (localPart.isNotEmpty) return localPart;
+    return "user_${DateTime.now().millisecondsSinceEpoch}";
+  }
+}
+
+// ---------------- MODEL ----------------
+
+class ArtistProfile {
+  final String userId;
+  final String name;
+  final String username;
+  final String bio;
+  final String? profileImagePath;
+
+  ArtistProfile({
+    required this.userId,
+    required this.name,
+    required this.username,
+    required this.bio,
+    this.profileImagePath,
+  });
+
+  ArtistProfile copyWith({
+    String? name,
+    String? username,
+    String? bio,
+    String? profileImagePath,
+  }) {
+    return ArtistProfile(
+      userId: userId,
+      name: name ?? this.name,
+      username: username ?? this.username,
+      bio: bio ?? this.bio,
+      profileImagePath: profileImagePath ?? this.profileImagePath,
+    );
   }
 }

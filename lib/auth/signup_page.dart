@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../backend/backend_contracts.dart';
+import '../backend/local_backend.dart';
 import '../core/routes.dart';
 import 'auth_validator.dart';
 
@@ -12,32 +14,37 @@ class SignupPage extends StatefulWidget {
 class _SignupPageState extends State<SignupPage> {
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController _emailController =
-      TextEditingController();
-  final TextEditingController _passwordController =
-      TextEditingController();
-  final TextEditingController _usernameController =
-      TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
 
   String _selectedRole = "buyer";
 
   // 👁️ Password visibility control
   bool _obscurePassword = true;
 
-  void _signup() {
+  Future<void> _signup() async {
     if (!_formKey.currentState!.validate()) return;
 
-    Navigator.pushReplacementNamed(
-        context, AppRoutes.login);
+    final role = _selectedRole == "producer"
+        ? AppUserRole.producer
+        : AppUserRole.buyer;
+
+    await AppBackend.auth.signup(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      username: _usernameController.text.trim(),
+      role: role,
+    );
+    if (!mounted) return;
+
+    Navigator.pushReplacementNamed(context, AppRoutes.login);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Sign Up"),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text("Sign Up"), centerTitle: true),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
@@ -45,19 +52,22 @@ class _SignupPageState extends State<SignupPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(
-                Icons.music_note,
-                size: 80,
-                color: Colors.deepPurple,
+              Center(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset(
+                    "assets/icon/app_icon.png",
+                    height: 80,
+                    width: 80,
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
               const SizedBox(height: 10),
               const Text(
                 "Create BeatHub Account",
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 30),
 
@@ -70,9 +80,7 @@ class _SignupPageState extends State<SignupPage> {
                   }
                   return null;
                 },
-                decoration: const InputDecoration(
-                  labelText: "Username",
-                ),
+                decoration: const InputDecoration(labelText: "Username"),
               ),
 
               const SizedBox(height: 15),
@@ -81,9 +89,7 @@ class _SignupPageState extends State<SignupPage> {
               TextFormField(
                 controller: _emailController,
                 validator: AuthValidator.validateEmail,
-                decoration: const InputDecoration(
-                  labelText: "Email",
-                ),
+                decoration: const InputDecoration(labelText: "Email"),
               ),
 
               const SizedBox(height: 15),
@@ -114,42 +120,32 @@ class _SignupPageState extends State<SignupPage> {
 
               // 👤 ROLE SELECT
               DropdownButtonFormField<String>(
-                value: _selectedRole,
+                initialValue: _selectedRole,
                 items: const [
                   DropdownMenuItem(
                     value: "buyer",
                     child: Text("Buyer / Artist"),
                   ),
-                  DropdownMenuItem(
-                    value: "producer",
-                    child: Text("Producer"),
-                  ),
+                  DropdownMenuItem(value: "producer", child: Text("Producer")),
                 ],
                 onChanged: (value) {
                   setState(() {
                     _selectedRole = value!;
                   });
                 },
-                decoration: const InputDecoration(
-                  labelText: "Sign up as",
-                ),
+                decoration: const InputDecoration(labelText: "Sign up as"),
               ),
 
               const SizedBox(height: 30),
 
               // 🔘 SIGNUP BUTTON
-              ElevatedButton(
-                onPressed: _signup,
-                child: const Text("Sign Up"),
-              ),
+              ElevatedButton(onPressed: _signup, child: const Text("Sign Up")),
 
               TextButton(
                 onPressed: () {
-                  Navigator.pushReplacementNamed(
-                      context, AppRoutes.login);
+                  Navigator.pushReplacementNamed(context, AppRoutes.login);
                 },
-                child: const Text(
-                    "Already have an account? Login"),
+                child: const Text("Already have an account? Login"),
               ),
             ],
           ),

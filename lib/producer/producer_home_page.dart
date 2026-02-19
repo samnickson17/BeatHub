@@ -17,7 +17,7 @@ class _ProducerHomePageState extends State<ProducerHomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("My Beats"),
+        title: const Text("All Beats"),
         centerTitle: true,
         actions: [
           IconButton(
@@ -26,7 +26,7 @@ class _ProducerHomePageState extends State<ProducerHomePage> {
               await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const UploadBeatPage(),
+                  builder: (_) => const UploadBeatPage(closeOnSuccess: true),
                 ),
               );
               setState(() {}); // 🔥 refresh list

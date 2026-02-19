@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../backend/backend_contracts.dart';
+import '../backend/local_backend.dart';
 import '../core/routes.dart';
 import 'auth_validator.dart';
 
@@ -12,24 +14,31 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController _emailController =
-      TextEditingController();
-  final TextEditingController _passwordController =
-      TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
   String _selectedRole = "buyer";
 
   // 👁️ Password visibility control
   bool _obscurePassword = true;
 
-  void _login() {
+  Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final role = _selectedRole == "producer"
+        ? AppUserRole.producer
+        : AppUserRole.buyer;
+
+    await AppBackend.auth.login(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      role: role,
+    );
+    if (!mounted) return;
 
     Navigator.pushReplacementNamed(
       context,
-      _selectedRole == "producer"
-          ? AppRoutes.producerNav
-          : AppRoutes.buyerNav,
+      _selectedRole == "producer" ? AppRoutes.producerNav : AppRoutes.buyerNav,
     );
   }
 
@@ -44,19 +53,22 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(
-                  Icons.music_note,
-                  size: 80,
-                  color: Colors.deepPurple,
+                Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.asset(
+                      "assets/icon/app_icon.png",
+                      height: 80,
+                      width: 80,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 const Text(
                   "BeatHub",
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 30),
 
@@ -64,9 +76,7 @@ class _LoginPageState extends State<LoginPage> {
                 TextFormField(
                   controller: _emailController,
                   validator: AuthValidator.validateEmail,
-                  decoration: const InputDecoration(
-                    labelText: "Email",
-                  ),
+                  decoration: const InputDecoration(labelText: "Email"),
                 ),
 
                 const SizedBox(height: 15),
@@ -97,7 +107,7 @@ class _LoginPageState extends State<LoginPage> {
 
                 // 👤 ROLE SELECT (FIXED ALIGNMENT)
                 DropdownButtonFormField<String>(
-                  value: _selectedRole,
+                  initialValue: _selectedRole,
                   items: const [
                     DropdownMenuItem(
                       value: "buyer",
@@ -126,20 +136,14 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 30),
 
                 // 🔘 LOGIN BUTTON
-                ElevatedButton(
-                  onPressed: _login,
-                  child: const Text("Login"),
-                ),
+                ElevatedButton(onPressed: _login, child: const Text("Login")),
 
                 // 📝 SIGNUP
                 TextButton(
                   onPressed: () {
-                    Navigator.pushNamed(
-                        context, AppRoutes.signup);
+                    Navigator.pushNamed(context, AppRoutes.signup);
                   },
-                  child: const Text(
-                    "Don’t have an account? Sign up",
-                  ),
+                  child: const Text("Don’t have an account? Sign up"),
                 ),
               ],
             ),

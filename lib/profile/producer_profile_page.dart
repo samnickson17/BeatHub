@@ -1,97 +1,92 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import '../beats/beat_store.dart';
+
+import '../backend/local_backend.dart';
 import '../beats/beat_detail_page.dart';
-import '../producer/revenue_calculator.dart';
-import 'follow_store.dart';
+import '../beats/beat_store.dart';
 import '../core/routes.dart';
+import '../data/purchased_beats.dart';
+import '../producer/edit_beat_page.dart';
+import '../producer/revenue_calculator.dart';
+import 'edit_producer_profile_page.dart';
+import 'follow_list_page.dart';
+import 'follow_store.dart';
+import 'producer_profile_store.dart';
 
 class ProducerProfilePage extends StatefulWidget {
   const ProducerProfilePage({super.key});
 
   @override
-  State<ProducerProfilePage> createState() =>
-      _ProducerProfilePageState();
+  State<ProducerProfilePage> createState() => _ProducerProfilePageState();
 }
 
-class _ProducerProfilePageState
-    extends State<ProducerProfilePage> {
-  // 🔐 Dummy logged-in producer info
-  final String producerId = "producer_001";
-  final String producerName = "Producer Sam";
-  final String username = "@producersam";
-
+class _ProducerProfilePageState extends State<ProducerProfilePage> {
   @override
   Widget build(BuildContext context) {
-    final producerBeats =
-        BeatStore.getBeatsByProducer(producerId);
-
-    final isFollowing =
-        FollowStore.isFollowing(producerId);
+    final profile = ProducerProfileStore.profile;
+    final producerId = profile.userId;
+    final producerBeats = BeatStore.getBeatsByProducer(producerId);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Producer Profile"),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text("Producer Profile"), centerTitle: true),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 👤 PROFILE HEADER
             Center(
               child: Column(
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 45,
                     backgroundColor: Colors.deepPurple,
-                    child: Icon(
-                      Icons.person,
-                      size: 45,
-                      color: Colors.white,
-                    ),
+                    backgroundImage: profile.profileImagePath != null
+                        ? FileImage(File(profile.profileImagePath!))
+                        : null,
+                    child: profile.profileImagePath == null
+                        ? const Icon(Icons.person, size: 45, color: Colors.white)
+                        : null,
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    producerName,
+                    profile.name,
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    username,
-                    style:
-                        const TextStyle(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // ❤️ FOLLOW BUTTON
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        if (isFollowing) {
-                          FollowStore.unfollow(producerId);
-                        } else {
-                          FollowStore.follow(producerId);
-                        }
-                      });
-                    },
-                    child: Text(
-                      isFollowing ? "Unfollow" : "Follow",
+                  Text("@${profile.username}", style: const TextStyle(color: Colors.grey)),
+                  if (profile.bio.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      profile.bio,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.grey),
                     ),
+                  ],
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final changed = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => EditProducerProfilePage(profile: profile),
+                        ),
+                      );
+                      if (changed == true && mounted) {
+                        setState(() {});
+                      }
+                    },
+                    child: const Text("Edit Profile"),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 20),
-
-            // 📊 STATS
             Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _statItem(
                   label: "Beats",
@@ -99,83 +94,105 @@ class _ProducerProfilePageState
                 ),
                 _statItem(
                   label: "Followers",
-                  value: FollowStore.followersCount(
-                          producerId)
-                      .toString(),
+                  value: FollowStore.followersCount(producerId).toString(),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => FollowListPage(
+                          title: "Followers",
+                          users: FollowStore.followersList(producerId),
+                          emptyText: "No followers yet",
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 _statItem(
                   label: "Following",
-                  value: "85",
+                  value: FollowStore.followingCount(producerId).toString(),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => FollowListPage(
+                          title: "Following",
+                          users: FollowStore.followingList(producerId),
+                          emptyText: "No following yet",
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
-
             const SizedBox(height: 20),
-
-            // 💰 REVENUE BUTTON
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.bar_chart),
-                label:
-                    const Text("Revenue Calculator"),
+                label: const Text("Revenue Calculator"),
                 onPressed: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) =>
-                          const RevenueCalculatorPage(),
+                      builder: (_) => const RevenueCalculatorPage(),
                     ),
                   );
                 },
               ),
             ),
-
             const SizedBox(height: 25),
-
             const Text(
               "My Beats",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-
             const SizedBox(height: 10),
-
-            // 🎹 BEATS LIST
             producerBeats.isEmpty
                 ? const Padding(
                     padding: EdgeInsets.all(20),
-                    child:
-                        Text("No beats uploaded yet"),
+                    child: Text("No beats uploaded yet"),
                   )
                 : ListView.builder(
                     shrinkWrap: true,
-                    physics:
-                        const NeverScrollableScrollPhysics(),
+                    physics: const NeverScrollableScrollPhysics(),
                     itemCount: producerBeats.length,
                     itemBuilder: (context, index) {
-                      final beat =
-                          producerBeats[index];
+                      final beat = producerBeats[index];
+                      final isSold = PurchasedBeatsStore.purchasedBeats.any(
+                        (item) => item.beat.id == beat.id,
+                      );
 
                       return Card(
-                        margin: const EdgeInsets.only(
-                            bottom: 10),
+                        margin: const EdgeInsets.only(bottom: 10),
                         child: ListTile(
-                          leading: const Icon(
-                              Icons.music_note),
+                          leading: const Icon(Icons.music_note),
                           title: Text(beat.title),
-                          subtitle: Text(
-                            "${beat.genre} • ₹${beat.price}",
-                          ),
+                          subtitle: Text("${beat.genre} - Rs ${beat.price}"),
+                          trailing: isSold
+                              ? const Chip(
+                                  label: Text("Sold"),
+                                  visualDensity: VisualDensity.compact,
+                                )
+                              : TextButton(
+                                  onPressed: () async {
+                                    final changed = await Navigator.push<bool>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => EditBeatPage(beat: beat),
+                                      ),
+                                    );
+                                    if (changed == true && context.mounted) {
+                                      setState(() {});
+                                    }
+                                  },
+                                  child: const Text("Edit"),
+                                ),
                           onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    BeatDetailPage(
-                                        beat: beat),
+                                builder: (_) => BeatDetailPage(beat: beat),
                               ),
                             );
                           },
@@ -183,16 +200,15 @@ class _ProducerProfilePageState
                       );
                     },
                   ),
-
             const SizedBox(height: 30),
-
-            // 🚪 LOGOUT BUTTON
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.logout),
                 label: const Text("Logout"),
-                onPressed: () {
+                onPressed: () async {
+                  await AppBackend.auth.logout();
+                  if (!context.mounted) return;
                   Navigator.pushNamedAndRemoveUntil(
                     context,
                     AppRoutes.login,
@@ -210,23 +226,24 @@ class _ProducerProfilePageState
   Widget _statItem({
     required String label,
     required String value,
+    VoidCallback? onTap,
   }) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(label, style: const TextStyle(color: Colors.grey)),
+          ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style:
-              const TextStyle(color: Colors.grey),
-        ),
-      ],
+      ),
     );
   }
 }

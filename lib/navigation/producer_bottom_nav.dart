@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 // Pages
 import '../producer/producer_home_page.dart';
 import '../producer/upload_beat_page.dart';
+import '../producer/producer_insights_page.dart';
 import '../producer/revenue_calculator.dart';
 import '../profile/producer_profile_page.dart';
 
@@ -20,6 +21,7 @@ class _ProducerBottomNavState extends State<ProducerBottomNav> {
   final List<Widget> _pages = const [
     ProducerHomePage(),
     UploadBeatPage(),
+    ProducerInsightsPage(),
     RevenueCalculatorPage(),
     ProducerProfilePage(),
   ];
@@ -46,6 +48,10 @@ class _ProducerBottomNavState extends State<ProducerBottomNav> {
           BottomNavigationBarItem(
             icon: Icon(Icons.library_music),
             label: "Upload",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.insights),
+            label: "Insights",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.bar_chart),
