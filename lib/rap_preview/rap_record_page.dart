@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../beats/beat_model.dart';
+import 'audio_mix_context.dart';
 import 'web_voice_player_stub.dart'
     if (dart.library.html) 'web_voice_player_web.dart';
 
@@ -23,16 +24,28 @@ class RapRecordPage extends StatefulWidget {
 class _RapRecordPageState extends State<RapRecordPage> {
   final AudioPlayer _beatPlayer = AudioPlayer();
   final AudioRecorder _recorder = AudioRecorder();
+  // Native second player for voice; created once and kept alive.
+  final AudioPlayer _nativeVoicePlayer = AudioPlayer();
 
   // Web voice player (dart:html AudioElement on web, no-op stub on native)
   final WebVoicePlayer _webVoice = WebVoicePlayer();
-  AudioPlayer? _nativeVoicePlayer;
 
   bool _isRecording = false;
   bool _isBusy = false;
   bool _isPreviewPlaying = false;
   String? _recordedPath;
   StreamSubscription? _previewSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-configure audio context so both players can mix without
+    // stealing each other's audio focus (Android) or session (iOS).
+    if (!kIsWeb) {
+      _beatPlayer.setAudioContext(mixingAudioContext);
+      _nativeVoicePlayer.setAudioContext(mixingAudioContext);
+    }
+  }
 
   // ── Waveform / amplitude ──────────────────────────────────────────────────
   static const int _barCount = 28;
@@ -196,13 +209,9 @@ class _RapRecordPageState extends State<RapRecordPage> {
       // On web: use raw HTMLAudioElement so it plays in parallel with the beat
       _webVoice.play(recPath, onEnded: () async => _stopPreview());
     } else {
-      // Native: use a second AudioPlayer
-      if (_nativeVoicePlayer == null) {
-        _nativeVoicePlayer = AudioPlayer();
-      }
-      await _nativeVoicePlayer!.setVolume(1.0);
-      await _nativeVoicePlayer!.play(DeviceFileSource(recPath));
-      _previewSub = _nativeVoicePlayer!.onPlayerComplete.listen((_) async {
+      await _nativeVoicePlayer.setVolume(1.0);
+      await _nativeVoicePlayer.play(DeviceFileSource(recPath));
+      _previewSub = _nativeVoicePlayer.onPlayerComplete.listen((_) async {
         await _previewSub?.cancel();
         _previewSub = null;
         await _beatPlayer.stop();
@@ -220,7 +229,7 @@ class _RapRecordPageState extends State<RapRecordPage> {
     if (kIsWeb) {
       _webVoice.pause();
     } else {
-      await _nativeVoicePlayer?.stop();
+      await _nativeVoicePlayer.stop();
     }
     if (mounted) setState(() => _isPreviewPlaying = false);
   }
@@ -251,7 +260,7 @@ class _RapRecordPageState extends State<RapRecordPage> {
     _previewSub?.cancel();
     _ampSub?.cancel();
     _beatPlayer.dispose();
-    _nativeVoicePlayer?.dispose();
+    _nativeVoicePlayer.dispose();
     _webVoice.dispose();
     _recorder.cancel();
     super.dispose();

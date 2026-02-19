@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'select_beat_page.dart';
+import 'audio_mix_context.dart';
 
 class _Recording {
   final String path;
@@ -43,14 +44,20 @@ class _RapPreviewPageState extends State<RapPreviewPage> {
   bool _isLoading = true;
 
   // Playback
-  final AudioPlayer _beatPlayer = AudioPlayer();
-  final AudioPlayer _voicePlayer = AudioPlayer();
+  late final AudioPlayer _beatPlayer;
+  late final AudioPlayer _voicePlayer;
   String? _playingPath;
   StreamSubscription? _playSub;
 
   @override
   void initState() {
     super.initState();
+    _beatPlayer = AudioPlayer();
+    _voicePlayer = AudioPlayer();
+    if (!kIsWeb) {
+      _beatPlayer.setAudioContext(mixingAudioContext);
+      _voicePlayer.setAudioContext(mixingAudioContext);
+    }
     _loadRecordings();
   }
 
