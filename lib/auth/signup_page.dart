@@ -22,6 +22,7 @@ class _SignupPageState extends State<SignupPage> {
 
   // 👁️ Password visibility control
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   Future<void> _signup() async {
     if (!_formKey.currentState!.validate()) return;
@@ -30,15 +31,45 @@ class _SignupPageState extends State<SignupPage> {
         ? AppUserRole.producer
         : AppUserRole.buyer;
 
-    await AppBackend.auth.signup(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-      username: _usernameController.text.trim(),
-      role: role,
-    );
-    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final user = await AppBackend.auth.signup(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        username: _usernameController.text.trim(),
+        role: role,
+      );
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(
+        context,
+        user.role == AppUserRole.producer
+            ? AppRoutes.producerNav
+            : AppRoutes.buyerNav,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_friendlyError(e.toString())),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
-    Navigator.pushReplacementNamed(context, AppRoutes.login);
+  String _friendlyError(String raw) {
+    if (raw.contains('email-already-in-use')) {
+      return 'An account with this email already exists.';
+    }
+    if (raw.contains('weak-password')) {
+      return 'Password is too weak. Use at least 6 characters.';
+    }
+    if (raw.contains('network-request-failed')) {
+      return 'No internet connection.';
+    }
+    return 'Sign up failed. Please try again.';
   }
 
   @override
@@ -139,7 +170,19 @@ class _SignupPageState extends State<SignupPage> {
               const SizedBox(height: 30),
 
               // 🔘 SIGNUP BUTTON
-              ElevatedButton(onPressed: _signup, child: const Text("Sign Up")),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _signup,
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text("Sign Up"),
+              ),
 
               TextButton(
                 onPressed: () {

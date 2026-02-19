@@ -11,19 +11,18 @@ class ApiAuthBackend implements AuthBackend {
   SessionUser? get currentUser => _currentUser;
 
   @override
+  Future<SessionUser?> restoreSession() async => null;
+
+  @override
   Future<SessionUser?> login({
     required String email,
     required String password,
-    required AppUserRole role,
   }) async {
     try {
       final response = await http.post(
         Uri.parse('${AppConstants.apiAuthUrl}/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
+        body: jsonEncode({'email': email, 'password': password}),
       );
 
       if (response.statusCode == 200) {
@@ -31,9 +30,10 @@ class ApiAuthBackend implements AuthBackend {
         _currentUser = SessionUser(
           userId: data['user']['id'],
           email: data['user']['email'],
-          role: data['user']['role'] == 'producer' 
-              ? AppUserRole.producer 
+          role: data['user']['role'] == 'producer'
+              ? AppUserRole.producer
               : AppUserRole.buyer,
+          username: data['user']['username'] ?? '',
         );
         return _currentUser;
       } else {
@@ -123,12 +123,45 @@ class ApiBeatsBackend implements BeatsBackend {
       throw Exception('Failed to add beat: $e');
     }
   }
+
+  @override
+  Future<List<BeatModel>> fetchBeatsByProducer(String producerId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.apiBeatsUrl}?producerId=$producerId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => BeatModel.fromJson(json)).toList();
+      }
+      throw Exception('Failed to fetch producer beats');
+    } catch (e) {
+      throw Exception('Failed to fetch producer beats: $e');
+    }
+  }
+
+  @override
+  Future<void> updateBeat(BeatModel beat) async {
+    try {
+      final response = await http.put(
+        Uri.parse('${AppConstants.apiBeatsUrl}/${beat.id}'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(beat.toJson()),
+      );
+      if (response.statusCode != 200) {
+        throw Exception('Failed to update beat');
+      }
+    } catch (e) {
+      throw Exception('Failed to update beat: $e');
+    }
+  }
 }
 
 class ApiBackend {
   static final AuthBackend auth = ApiAuthBackend();
   static final BeatsBackend beats = ApiBeatsBackend();
-  
+
   // Print backend URL info
   static void printBackendInfo() {
     print('🔗 Connected to backend: ${AppConstants.backendUrl}');

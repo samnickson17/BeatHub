@@ -17,29 +17,51 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  String _selectedRole = "buyer";
-
-  // 👁️ Password visibility control
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final role = _selectedRole == "producer"
-        ? AppUserRole.producer
-        : AppUserRole.buyer;
+    setState(() => _isLoading = true);
+    try {
+      final user = await AppBackend.auth.login(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(
+        context,
+        user?.role == AppUserRole.producer
+            ? AppRoutes.producerNav
+            : AppRoutes.buyerNav,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_friendlyError(e.toString())),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
-    await AppBackend.auth.login(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-      role: role,
-    );
-    if (!mounted) return;
-
-    Navigator.pushReplacementNamed(
-      context,
-      _selectedRole == "producer" ? AppRoutes.producerNav : AppRoutes.buyerNav,
-    );
+  String _friendlyError(String raw) {
+    if (raw.contains('user-not-found') ||
+        raw.contains('wrong-password') ||
+        raw.contains('invalid-credential')) {
+      return 'Incorrect email or password.';
+    }
+    if (raw.contains('too-many-requests')) {
+      return 'Too many attempts. Try again later.';
+    }
+    if (raw.contains('network-request-failed')) {
+      return 'No internet connection.';
+    }
+    return 'Login failed. Please try again.';
   }
 
   @override
@@ -105,38 +127,22 @@ class _LoginPageState extends State<LoginPage> {
 
                 const SizedBox(height: 15),
 
-                // 👤 ROLE SELECT (FIXED ALIGNMENT)
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedRole,
-                  items: const [
-                    DropdownMenuItem(
-                      value: "buyer",
-                      child: Text("Buyer / Artist"),
-                    ),
-                    DropdownMenuItem(
-                      value: "producer",
-                      child: Text("Producer"),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedRole = value!;
-                    });
-                  },
-                  decoration: const InputDecoration(
-                    labelText: "Login as",
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 16,
-                    ),
-                  ),
-                ),
-
                 const SizedBox(height: 30),
 
                 // 🔘 LOGIN BUTTON
-                ElevatedButton(onPressed: _login, child: const Text("Login")),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _login,
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text("Login"),
+                ),
 
                 // 📝 SIGNUP
                 TextButton(

@@ -26,23 +26,17 @@ Future<void> main(List<String> args) async {
         final body = await _readJsonBody(request);
         final email = (body['email'] ?? '').toString().trim();
         final password = (body['password'] ?? '').toString();
-        final roleRaw = (body['role'] ?? 'buyer').toString().toLowerCase();
-        final role =
-            roleRaw == 'producer' ? AppUserRole.producer : AppUserRole.buyer;
 
         if (email.isEmpty || password.isEmpty) {
-          await _sendJson(
-            request,
-            HttpStatus.badRequest,
-            {'error': 'email and password are required'},
-          );
+          await _sendJson(request, HttpStatus.badRequest, {
+            'error': 'email and password are required',
+          });
           continue;
         }
 
         final user = await AppBackend.auth.login(
           email: email,
           password: password,
-          role: role,
         );
 
         await _sendJson(request, HttpStatus.ok, {
@@ -59,15 +53,14 @@ Future<void> main(List<String> args) async {
         final password = (body['password'] ?? '').toString();
         final username = (body['username'] ?? '').toString().trim();
         final roleRaw = (body['role'] ?? 'buyer').toString().toLowerCase();
-        final role =
-            roleRaw == 'producer' ? AppUserRole.producer : AppUserRole.buyer;
+        final role = roleRaw == 'producer'
+            ? AppUserRole.producer
+            : AppUserRole.buyer;
 
         if (email.isEmpty || password.isEmpty || username.isEmpty) {
-          await _sendJson(
-            request,
-            HttpStatus.badRequest,
-            {'error': 'email, password, and username are required'},
-          );
+          await _sendJson(request, HttpStatus.badRequest, {
+            'error': 'email, password, and username are required',
+          });
           continue;
         }
 
@@ -106,11 +99,9 @@ Future<void> main(List<String> args) async {
         final body = await _readJsonBody(request);
         final validationError = _validateBeatBody(body);
         if (validationError != null) {
-          await _sendJson(
-            request,
-            HttpStatus.badRequest,
-            {'error': validationError},
-          );
+          await _sendJson(request, HttpStatus.badRequest, {
+            'error': validationError,
+          });
           continue;
         }
 
@@ -123,8 +114,8 @@ Future<void> main(List<String> args) async {
           bpm: (body['bpm'] as num).toInt(),
           basicLicensePrice: (body['basicLicensePrice'] as num).toDouble(),
           premiumLicensePrice: (body['premiumLicensePrice'] as num).toDouble(),
-          exclusiveLicensePrice:
-              (body['exclusiveLicensePrice'] as num).toDouble(),
+          exclusiveLicensePrice: (body['exclusiveLicensePrice'] as num)
+              .toDouble(),
           description: (body['description'] as String).trim(),
           audioPath: (body['audioPath'] as String).trim(),
           coverArtPath: body['coverArtPath']?.toString(),
@@ -135,17 +126,14 @@ Future<void> main(List<String> args) async {
         continue;
       }
 
-      await _sendJson(
-        request,
-        HttpStatus.notFound,
-        {'error': 'Route not found: $method $path'},
-      );
+      await _sendJson(request, HttpStatus.notFound, {
+        'error': 'Route not found: $method $path',
+      });
     } catch (e) {
-      await _sendJson(
-        request,
-        HttpStatus.internalServerError,
-        {'error': 'Server error', 'details': e.toString()},
-      );
+      await _sendJson(request, HttpStatus.internalServerError, {
+        'error': 'Server error',
+        'details': e.toString(),
+      });
     }
   }
 }
