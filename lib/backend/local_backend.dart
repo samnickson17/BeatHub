@@ -1,5 +1,6 @@
 import '../beats/beat_model.dart';
 import '../beats/beat_store.dart';
+import '../data/purchased_beats.dart';
 import '../profile/profile_store.dart';
 import 'backend_contracts.dart';
 import 'firebase_backend.dart';
@@ -111,10 +112,42 @@ class LocalBeatsBackend implements BeatsBackend {
 }
 
 // ─────────────────────────────────────────────
+// Local (mock) Purchases — kept for offline testing
+// ─────────────────────────────────────────────
+class LocalPurchasesBackend implements PurchasesBackend {
+  final List<PurchasedBeat> _store = [];
+
+  @override
+  Future<void> recordPurchase(PurchasedBeat purchase) async {
+    _store.add(purchase);
+  }
+
+  @override
+  Future<List<PurchasedBeat>> fetchPurchasesByBuyer(String buyerUserId) async {
+    return _store.where((p) => p.buyerUserId == buyerUserId).toList()
+      ..sort((a, b) => b.purchasedAt.compareTo(a.purchasedAt));
+  }
+
+  @override
+  Future<List<PurchasedBeat>> fetchPurchasesBySeller(String producerId) async {
+    return _store.where((p) => p.beat.producerId == producerId).toList()
+      ..sort((a, b) => b.purchasedAt.compareTo(a.purchasedAt));
+  }
+
+  @override
+  Future<double> fetchTotalRevenue(String producerId) async {
+    return _store
+        .where((p) => p.beat.producerId == producerId)
+        .fold<double>(0, (sum, p) => sum + p.pricePaid);
+  }
+}
+
+// ─────────────────────────────────────────────
 // AppBackend — single access point for the app
 // Swap to Local* classes for offline testing
 // ─────────────────────────────────────────────
 class AppBackend {
   static final AuthBackend auth = FirebaseAuthBackend();
   static final BeatsBackend beats = FirebaseBeatsBackend();
+  static final PurchasesBackend purchases = FirebasePurchasesBackend();
 }

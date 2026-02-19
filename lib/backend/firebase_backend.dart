@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import '../beats/beat_model.dart';
+import '../data/purchased_beats.dart';
 import '../profile/profile_store.dart';
 import 'backend_contracts.dart';
 
@@ -230,5 +231,49 @@ class FirebaseBeatsBackend implements BeatsBackend {
       'coverArtUrl': coverUrl,
       'createdAt': FieldValue.serverTimestamp(),
     });
+  }
+}
+
+// ─────────────────────────────────────────────
+// Firebase Purchases Backend
+// ─────────────────────────────────────────────
+class FirebasePurchasesBackend implements PurchasesBackend {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  @override
+  Future<void> recordPurchase(PurchasedBeat purchase) async {
+    await _db.collection('purchases').add(purchase.toFirestore());
+  }
+
+  @override
+  Future<List<PurchasedBeat>> fetchPurchasesByBuyer(String buyerUserId) async {
+    final snapshot = await _db
+        .collection('purchases')
+        .where('buyerUserId', isEqualTo: buyerUserId)
+        .get();
+    final list = snapshot.docs
+        .map((doc) => PurchasedBeat.fromFirestore(doc.id, doc.data()))
+        .toList();
+    list.sort((a, b) => b.purchasedAt.compareTo(a.purchasedAt));
+    return list;
+  }
+
+  @override
+  Future<List<PurchasedBeat>> fetchPurchasesBySeller(String producerId) async {
+    final snapshot = await _db
+        .collection('purchases')
+        .where('beatProducerId', isEqualTo: producerId)
+        .get();
+    final list = snapshot.docs
+        .map((doc) => PurchasedBeat.fromFirestore(doc.id, doc.data()))
+        .toList();
+    list.sort((a, b) => b.purchasedAt.compareTo(a.purchasedAt));
+    return list;
+  }
+
+  @override
+  Future<double> fetchTotalRevenue(String producerId) async {
+    final list = await fetchPurchasesBySeller(producerId);
+    return list.fold<double>(0, (sum, p) => sum + p.pricePaid);
   }
 }

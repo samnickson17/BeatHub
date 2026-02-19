@@ -1,4 +1,5 @@
 import '../beats/beat_model.dart';
+import '../data/purchased_beats.dart';
 
 enum AppUserRole { buyer, producer }
 
@@ -52,4 +53,18 @@ abstract class BeatsBackend {
     List<int>? coverArtBytes,
     String? coverArtExtension,
   });
+}
+
+abstract class PurchasesBackend {
+  /// Save a purchase to the database.
+  Future<void> recordPurchase(PurchasedBeat purchase);
+
+  /// Beats bought by this buyer.
+  Future<List<PurchasedBeat>> fetchPurchasesByBuyer(String buyerUserId);
+
+  /// Beats sold by this producer.
+  Future<List<PurchasedBeat>> fetchPurchasesBySeller(String producerId);
+
+  /// Total revenue for a producer.
+  Future<double> fetchTotalRevenue(String producerId);
 }

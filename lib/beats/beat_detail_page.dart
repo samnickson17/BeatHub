@@ -217,16 +217,16 @@ class _BeatDetailPageState extends State<BeatDetailPage> {
                           buyerProfile?.username ?? buyerName.toLowerCase();
                       final now = DateTime.now();
 
-                      PurchasedBeatsStore.purchasedBeats.add(
+                      await AppBackend.purchases.recordPurchase(
                         PurchasedBeat(
                           beat: beat,
                           license: _selectedLicense,
-                          buyerUserId: currentUser?.userId ?? "buyer_unknown",
+                          buyerUserId: currentUser?.userId ?? 'buyer_unknown',
                           buyerAccountName: buyerName,
                           buyerUsername: buyerUsername,
-                          buyerEmail: currentUser?.email ?? "unknown@local",
+                          buyerEmail: currentUser?.email ?? 'unknown@local',
                           pricePaid: selectedPrice,
-                          transactionId: "TXN${now.microsecondsSinceEpoch}",
+                          transactionId: 'TXN${now.microsecondsSinceEpoch}',
                           purchasedAt: now,
                         ),
                       );

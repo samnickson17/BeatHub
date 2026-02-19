@@ -6,7 +6,6 @@ import '../backend/local_backend.dart';
 import '../beats/beat_detail_page.dart';
 import '../beats/beat_store.dart';
 import '../core/routes.dart';
-import '../data/purchased_beats.dart';
 import '../producer/edit_beat_page.dart';
 import '../producer/revenue_calculator.dart';
 import 'edit_producer_profile_page.dart';
@@ -45,7 +44,11 @@ class _ProducerProfilePageState extends State<ProducerProfilePage> {
                         ? FileImage(File(profile.profileImagePath!))
                         : null,
                     child: profile.profileImagePath == null
-                        ? const Icon(Icons.person, size: 45, color: Colors.white)
+                        ? const Icon(
+                            Icons.person,
+                            size: 45,
+                            color: Colors.white,
+                          )
                         : null,
                   ),
                   const SizedBox(height: 10),
@@ -57,7 +60,10 @@ class _ProducerProfilePageState extends State<ProducerProfilePage> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text("@${profile.username}", style: const TextStyle(color: Colors.grey)),
+                  Text(
+                    "@${profile.username}",
+                    style: const TextStyle(color: Colors.grey),
+                  ),
                   if (profile.bio.trim().isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
@@ -72,7 +78,8 @@ class _ProducerProfilePageState extends State<ProducerProfilePage> {
                       final changed = await Navigator.push<bool>(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => EditProducerProfilePage(profile: profile),
+                          builder: (_) =>
+                              EditProducerProfilePage(profile: profile),
                         ),
                       );
                       if (changed == true && mounted) {
@@ -159,9 +166,6 @@ class _ProducerProfilePageState extends State<ProducerProfilePage> {
                     itemCount: producerBeats.length,
                     itemBuilder: (context, index) {
                       final beat = producerBeats[index];
-                      final isSold = PurchasedBeatsStore.purchasedBeats.any(
-                        (item) => item.beat.id == beat.id,
-                      );
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 10),
@@ -169,25 +173,20 @@ class _ProducerProfilePageState extends State<ProducerProfilePage> {
                           leading: const Icon(Icons.music_note),
                           title: Text(beat.title),
                           subtitle: Text("${beat.genre} - Rs ${beat.price}"),
-                          trailing: isSold
-                              ? const Chip(
-                                  label: Text("Sold"),
-                                  visualDensity: VisualDensity.compact,
-                                )
-                              : TextButton(
-                                  onPressed: () async {
-                                    final changed = await Navigator.push<bool>(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => EditBeatPage(beat: beat),
-                                      ),
-                                    );
-                                    if (changed == true && context.mounted) {
-                                      setState(() {});
-                                    }
-                                  },
-                                  child: const Text("Edit"),
+                          trailing: TextButton(
+                            onPressed: () async {
+                              final changed = await Navigator.push<bool>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => EditBeatPage(beat: beat),
                                 ),
+                              );
+                              if (changed == true && context.mounted) {
+                                setState(() {});
+                              }
+                            },
+                            child: const Text("Edit"),
+                          ),
                           onTap: () {
                             Navigator.push(
                               context,

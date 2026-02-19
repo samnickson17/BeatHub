@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../backend/local_backend.dart';
 import '../core/routes.dart';
-import '../data/purchased_beats.dart';
 import 'edit_artist_profile_page.dart';
 import 'follow_list_page.dart';
 import 'follow_store.dart';
@@ -18,6 +17,7 @@ class ArtistProfilePage extends StatefulWidget {
 class _ArtistProfilePageState extends State<ArtistProfilePage> {
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
+  int _purchaseCount = 0;
 
   @override
   void initState() {
@@ -33,9 +33,11 @@ class _ArtistProfilePageState extends State<ArtistProfilePage> {
           .collection('users')
           .doc(uid)
           .get();
+      final purchases = await AppBackend.purchases.fetchPurchasesByBuyer(uid);
       if (mounted) {
         setState(() {
           _userData = doc.data() ?? {};
+          _purchaseCount = purchases.length;
           _isLoading = false;
         });
       }
@@ -56,7 +58,6 @@ class _ArtistProfilePageState extends State<ArtistProfilePage> {
     final bio = (_userData?['bio'] ?? '').toString().trim();
     final email = user?.email ?? '';
     final uid = user?.userId ?? '';
-    final purchases = PurchasedBeatsStore.purchasedBeats;
 
     return Scaffold(
       appBar: AppBar(
@@ -144,10 +145,7 @@ class _ArtistProfilePageState extends State<ArtistProfilePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _statItem(
-                  label: "Purchased",
-                  value: purchases.length.toString(),
-                ),
+                _statItem(label: "Purchased", value: _purchaseCount.toString()),
                 _statItem(
                   label: "Followers",
                   value: FollowStore.followersCount(uid).toString(),
