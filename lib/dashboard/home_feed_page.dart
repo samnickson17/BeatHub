@@ -1,72 +1,124 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import '../profile/profile_store.dart';
-import '../profile/follow_store.dart';
-import '../profile/user_profile_model.dart';
-import '../profile/public_profile_page.dart';
 
-class HomeFeedPage extends StatelessWidget {
+import '../backend/local_backend.dart';
+import '../profile/public_profile_page.dart';
+import '../profile/user_profile_model.dart';
+
+class HomeFeedPage extends StatefulWidget {
   const HomeFeedPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final currentUser = ProfileStore.currentUser;
+  State<HomeFeedPage> createState() => _HomeFeedPageState();
+}
 
-    if (currentUser == null) {
-      return const Center(
-        child: Text("No user logged in"),
-      );
+class _HomeFeedPageState extends State<HomeFeedPage> {
+  bool _isLoading = true;
+  List<UserProfile> _followedProducers = [];
+  List<UserProfile> _suggestedProducers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _isLoading = true);
+    try {
+      final myUid = AppBackend.auth.currentUser?.userId ?? '';
+      final followingIds = await AppBackend.follow.getFollowingIds(myUid);
+
+      if (followingIds.isNotEmpty) {
+        // Load profiles of followed users that are producers
+        final profiles = await Future.wait(
+          followingIds.map((uid) => AppBackend.follow.getUserProfile(uid)),
+        );
+        _followedProducers = profiles
+            .whereType<Map<String, dynamic>>()
+            .where((d) => (d['role'] ?? '') == 'producer')
+            .map((d) => _profileFromMap(d))
+            .toList();
+        _suggestedProducers = [];
+      } else {
+        // Suggest producers from Firestore
+        final snapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .where('role', isEqualTo: 'producer')
+            .limit(20)
+            .get();
+        _suggestedProducers = snapshot.docs.where((d) => d.id != myUid).map((
+          d,
+        ) {
+          final data = {...d.data(), 'uid': d.id};
+          return _profileFromMap(data);
+        }).toList();
+        _followedProducers = [];
+      }
+
+      if (mounted) setState(() => _isLoading = false);
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
 
-    // Get followed users
-    final followedProfiles = ProfileStore.getAllProfiles()
-        .where((profile) =>
-            FollowStore.isFollowing(
-              currentUser.userId,
-              profile.userId,
-            ) &&
-            profile.role == "producer")
-        .toList();
+  UserProfile _profileFromMap(Map<String, dynamic> d) {
+    return UserProfile(
+      userId: d['uid'] ?? d['userId'] ?? '',
+      username: d['username'] ?? '',
+      displayName: d['displayName'] ?? d['username'] ?? '',
+      bio: d['bio'] ?? '',
+      role: d['role'] ?? 'producer',
+      profileCompleted: true,
+    );
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Home"),
         centerTitle: true,
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+        ],
       ),
-      body: followedProfiles.isEmpty
-          ? _buildSuggestedProducers(context)
-          : _buildFollowedFeed(
-              context, followedProfiles),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _followedProducers.isNotEmpty
+          ? _buildFollowedFeed()
+          : _buildSuggestedProducers(),
     );
   }
 
-  // 🔹 FOLLOWED FEED
-  Widget _buildFollowedFeed(
-    BuildContext context,
-    List<UserProfile> producers,
-  ) {
+  Widget _buildFollowedFeed() {
     return ListView.builder(
       padding: const EdgeInsets.all(12),
-      itemCount: producers.length,
+      itemCount: _followedProducers.length,
       itemBuilder: (context, index) {
-        final producer = producers[index];
-
+        final producer = _followedProducers[index];
         return Card(
           child: ListTile(
-            leading: const Icon(Icons.music_note),
+            leading: CircleAvatar(
+              backgroundColor: Colors.deepPurple,
+              child: Text(
+                producer.displayName.isNotEmpty
+                    ? producer.displayName[0].toUpperCase()
+                    : '?',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
             title: Text(producer.displayName),
-            subtitle:
-                Text("@${producer.username} • Producer"),
-            trailing:
-                const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
+            subtitle: Text("@${producer.username} · Producer"),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => PublicProfilePage(
-                    profile: producer,
-                  ),
+                  builder: (_) => PublicProfilePage(profile: producer),
                 ),
               );
+              _load(); // refresh follow state
             },
           ),
         );
@@ -74,55 +126,54 @@ class HomeFeedPage extends StatelessWidget {
     );
   }
 
-  // 🔹 SUGGESTED PRODUCERS
-  Widget _buildSuggestedProducers(
-      BuildContext context) {
-    final producers = ProfileStore.getAllProfiles()
-        .where((p) => p.role == "producer")
-        .toList();
-
+  Widget _buildSuggestedProducers() {
+    if (_suggestedProducers.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text(
+            "No producers found yet.\nCheck back soon!",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16),
+          ),
+        ),
+      );
+    }
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const Text(
           "Suggested Producers",
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 10),
-        ...producers.map(
+        ..._suggestedProducers.map(
           (producer) => Card(
             child: ListTile(
-              leading: const Icon(Icons.person),
+              leading: CircleAvatar(
+                backgroundColor: Colors.deepPurple,
+                child: Text(
+                  producer.displayName.isNotEmpty
+                      ? producer.displayName[0].toUpperCase()
+                      : '?',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
               title: Text(producer.displayName),
-              subtitle:
-                  Text("@${producer.username}"),
-              trailing:
-                  const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.push(
+              subtitle: Text("@${producer.username}"),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => PublicProfilePage(
-                      profile: producer,
-                    ),
+                    builder: (_) => PublicProfilePage(profile: producer),
                   ),
                 );
+                _load();
               },
             ),
           ),
         ),
-        if (producers.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 40),
-            child: Center(
-              child: Text(
-                "No producers available yet",
-              ),
-            ),
-          ),
       ],
     );
   }

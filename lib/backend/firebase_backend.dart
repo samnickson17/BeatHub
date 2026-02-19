@@ -277,3 +277,87 @@ class FirebasePurchasesBackend implements PurchasesBackend {
     return list.fold<double>(0, (sum, p) => sum + p.pricePaid);
   }
 }
+
+// ─────────────────────────────────────────────
+// Firebase Follow Backend
+// ─────────────────────────────────────────────
+class FirebaseFollowBackend implements FollowBackend {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  @override
+  Future<bool> isFollowing(String myUid, String targetUid) async {
+    final doc = await _db
+        .collection('users')
+        .doc(myUid)
+        .collection('following')
+        .doc(targetUid)
+        .get();
+    return doc.exists;
+  }
+
+  @override
+  Future<void> follow(String myUid, String targetUid) async {
+    final batch = _db.batch();
+    final ts = FieldValue.serverTimestamp();
+    batch.set(
+      _db.collection('users').doc(myUid).collection('following').doc(targetUid),
+      {'targetId': targetUid, 'createdAt': ts},
+    );
+    batch.set(
+      _db.collection('users').doc(targetUid).collection('followers').doc(myUid),
+      {'followerId': myUid, 'createdAt': ts},
+    );
+    batch.update(_db.collection('users').doc(myUid), {
+      'followingCount': FieldValue.increment(1),
+    });
+    batch.update(_db.collection('users').doc(targetUid), {
+      'followersCount': FieldValue.increment(1),
+    });
+    await batch.commit();
+  }
+
+  @override
+  Future<void> unfollow(String myUid, String targetUid) async {
+    final batch = _db.batch();
+    batch.delete(
+      _db.collection('users').doc(myUid).collection('following').doc(targetUid),
+    );
+    batch.delete(
+      _db.collection('users').doc(targetUid).collection('followers').doc(myUid),
+    );
+    batch.update(_db.collection('users').doc(myUid), {
+      'followingCount': FieldValue.increment(-1),
+    });
+    batch.update(_db.collection('users').doc(targetUid), {
+      'followersCount': FieldValue.increment(-1),
+    });
+    await batch.commit();
+  }
+
+  @override
+  Future<List<String>> getFollowingIds(String uid) async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('following')
+        .get();
+    return snapshot.docs.map((d) => d.id).toList();
+  }
+
+  @override
+  Future<List<String>> getFollowerIds(String uid) async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('followers')
+        .get();
+    return snapshot.docs.map((d) => d.id).toList();
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getUserProfile(String uid) async {
+    final doc = await _db.collection('users').doc(uid).get();
+    if (!doc.exists) return null;
+    return {...doc.data()!, 'uid': uid};
+  }
+}

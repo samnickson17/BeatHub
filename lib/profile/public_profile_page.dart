@@ -1,68 +1,77 @@
 import 'package:flutter/material.dart';
+
+import '../backend/local_backend.dart';
 import 'user_profile_model.dart';
-import 'profile_store.dart';
-import 'follow_store.dart';
 
 class PublicProfilePage extends StatefulWidget {
   final UserProfile profile;
 
-  const PublicProfilePage({
-    super.key,
-    required this.profile,
-  });
+  const PublicProfilePage({super.key, required this.profile});
 
   @override
-  State<PublicProfilePage> createState() =>
-      _PublicProfilePageState();
+  State<PublicProfilePage> createState() => _PublicProfilePageState();
 }
 
-class _PublicProfilePageState
-    extends State<PublicProfilePage> {
-  late bool _isFollowing;
+class _PublicProfilePageState extends State<PublicProfilePage> {
+  bool _isFollowing = false;
+  bool _followLoading = true;
+  int _followersCount = 0;
+  int _followingCount = 0;
 
   @override
   void initState() {
     super.initState();
-    final currentUser = ProfileStore.currentUser;
-    if (currentUser != null) {
-      _isFollowing = FollowStore.isFollowing(
-        currentUser.userId,
-        widget.profile.userId,
-      );
-    } else {
-      _isFollowing = false;
+    _loadFollowData();
+  }
+
+  Future<void> _loadFollowData() async {
+    final myUid = AppBackend.auth.currentUser?.userId ?? '';
+    final targetUid = widget.profile.userId;
+    final results = await Future.wait([
+      AppBackend.follow.isFollowing(myUid, targetUid),
+      AppBackend.follow.getFollowerIds(targetUid),
+      AppBackend.follow.getFollowingIds(targetUid),
+    ]);
+    if (mounted) {
+      setState(() {
+        _isFollowing = results[0] as bool;
+        _followersCount = (results[1] as List).length;
+        _followingCount = (results[2] as List).length;
+        _followLoading = false;
+      });
     }
   }
 
-  void _toggleFollow() {
-    final currentUser = ProfileStore.currentUser;
-    if (currentUser == null) return;
-
-    setState(() {
+  void _toggleFollow() async {
+    final myUid = AppBackend.auth.currentUser?.userId;
+    if (myUid == null) return;
+    setState(() => _followLoading = true);
+    try {
       if (_isFollowing) {
-        FollowStore.unfollow(
-          currentUser.userId,
-          widget.profile.userId,
-        );
-        _isFollowing = false;
+        await AppBackend.follow.unfollow(myUid, widget.profile.userId);
+        if (mounted)
+          setState(() {
+            _isFollowing = false;
+            _followersCount = (_followersCount - 1).clamp(0, 999999);
+          });
       } else {
-        FollowStore.follow(
-          currentUser.userId,
-          widget.profile.userId,
-        );
-        _isFollowing = true;
+        await AppBackend.follow.follow(myUid, widget.profile.userId);
+        if (mounted)
+          setState(() {
+            _isFollowing = true;
+            _followersCount++;
+          });
       }
-    });
+    } catch (_) {}
+    if (mounted) setState(() => _followLoading = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = ProfileStore.currentUser;
+    final myUid = AppBackend.auth.currentUser?.userId;
 
-    final followers =
-        FollowStore.followersCount(widget.profile.userId);
-    final following =
-        FollowStore.followingCount(widget.profile.userId);
+    final followers = _followersCount;
+    final following = _followingCount;
 
     return Scaffold(
       appBar: AppBar(
@@ -76,21 +85,14 @@ class _PublicProfilePageState
             // 👤 PROFILE HEADER
             CircleAvatar(
               radius: 45,
-              child: Icon(
-                Icons.person,
-                size: 42,
-                color: Colors.grey.shade700,
-              ),
+              child: Icon(Icons.person, size: 42, color: Colors.grey.shade700),
             ),
 
             const SizedBox(height: 10),
 
             Text(
               widget.profile.displayName,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
 
             Text(
@@ -100,29 +102,28 @@ class _PublicProfilePageState
 
             const SizedBox(height: 6),
 
-            Text(
-              widget.profile.bio,
-              textAlign: TextAlign.center,
-            ),
+            Text(widget.profile.bio, textAlign: TextAlign.center),
 
             const SizedBox(height: 15),
 
             // ➕ FOLLOW BUTTON (NOT FOR SELF)
-            if (currentUser != null &&
-                currentUser.userId !=
-                    widget.profile.userId)
+            if (myUid != null && myUid != widget.profile.userId)
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _toggleFollow,
+                  onPressed: _followLoading ? null : _toggleFollow,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _isFollowing
                         ? Colors.grey
                         : Colors.deepPurple,
                   ),
-                  child: Text(
-                    _isFollowing ? "Unfollow" : "Follow",
-                  ),
+                  child: _followLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(_isFollowing ? "Unfollow" : "Follow"),
                 ),
               ),
 
@@ -130,21 +131,11 @@ class _PublicProfilePageState
 
             // 📊 STATS (REAL)
             Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _StatItem(
-                  label: "Beats",
-                  value: "0",
-                ),
-                _StatItem(
-                  label: "Followers",
-                  value: followers.toString(),
-                ),
-                _StatItem(
-                  label: "Following",
-                  value: following.toString(),
-                ),
+                _StatItem(label: "Beats", value: "0"),
+                _StatItem(label: "Followers", value: followers.toString()),
+                _StatItem(label: "Following", value: following.toString()),
               ],
             ),
 
@@ -154,9 +145,7 @@ class _PublicProfilePageState
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                widget.profile.role == "producer"
-                    ? "Beats"
-                    : "Purchased Beats",
+                widget.profile.role == "producer" ? "Beats" : "Purchased Beats",
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -168,19 +157,15 @@ class _PublicProfilePageState
 
             GridView.builder(
               shrinkWrap: true,
-              physics:
-                  const NeverScrollableScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics(),
               itemCount: 0,
-              gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
                 crossAxisSpacing: 8,
                 mainAxisSpacing: 8,
               ),
               itemBuilder: (context, index) {
-                return Container(
-                  color: Colors.grey.shade300,
-                );
+                return Container(color: Colors.grey.shade300);
               },
             ),
           ],
@@ -195,10 +180,7 @@ class _StatItem extends StatelessWidget {
   final String label;
   final String value;
 
-  const _StatItem({
-    required this.label,
-    required this.value,
-  });
+  const _StatItem({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -206,15 +188,9 @@ class _StatItem extends StatelessWidget {
       children: [
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.grey),
-        ),
+        Text(label, style: const TextStyle(color: Colors.grey)),
       ],
     );
   }

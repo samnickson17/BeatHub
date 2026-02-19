@@ -5,7 +5,6 @@ import '../backend/local_backend.dart';
 import '../core/routes.dart';
 import 'edit_artist_profile_page.dart';
 import 'follow_list_page.dart';
-import 'follow_store.dart';
 
 class ArtistProfilePage extends StatefulWidget {
   const ArtistProfilePage({super.key});
@@ -18,6 +17,8 @@ class _ArtistProfilePageState extends State<ArtistProfilePage> {
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
   int _purchaseCount = 0;
+  List<String> _followerIds = [];
+  List<String> _followingIds = [];
 
   @override
   void initState() {
@@ -29,15 +30,21 @@ class _ArtistProfilePageState extends State<ArtistProfilePage> {
     setState(() => _isLoading = true);
     try {
       final uid = AppBackend.auth.currentUser?.userId ?? '';
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
-      final purchases = await AppBackend.purchases.fetchPurchasesByBuyer(uid);
+      final results = await Future.wait([
+        FirebaseFirestore.instance.collection('users').doc(uid).get(),
+        AppBackend.purchases.fetchPurchasesByBuyer(uid),
+        AppBackend.follow.getFollowerIds(uid),
+        AppBackend.follow.getFollowingIds(uid),
+      ]);
       if (mounted) {
         setState(() {
-          _userData = doc.data() ?? {};
-          _purchaseCount = purchases.length;
+          _userData =
+              (results[0] as DocumentSnapshot).data()
+                  as Map<String, dynamic>? ??
+              {};
+          _purchaseCount = (results[1] as List).length;
+          _followerIds = List<String>.from(results[2] as List);
+          _followingIds = List<String>.from(results[3] as List);
           _isLoading = false;
         });
       }
@@ -57,7 +64,6 @@ class _ArtistProfilePageState extends State<ArtistProfilePage> {
     final username = (_userData?['username'] ?? '').toString().trim();
     final bio = (_userData?['bio'] ?? '').toString().trim();
     final email = user?.email ?? '';
-    final uid = user?.userId ?? '';
 
     return Scaffold(
       appBar: AppBar(
@@ -148,13 +154,13 @@ class _ArtistProfilePageState extends State<ArtistProfilePage> {
                 _statItem(label: "Purchased", value: _purchaseCount.toString()),
                 _statItem(
                   label: "Followers",
-                  value: FollowStore.followersCount(uid).toString(),
+                  value: _followerIds.length.toString(),
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => FollowListPage(
                         title: "Followers",
-                        users: FollowStore.followersList(uid),
+                        users: _followerIds,
                         emptyText: "No followers yet",
                       ),
                     ),
@@ -162,13 +168,13 @@ class _ArtistProfilePageState extends State<ArtistProfilePage> {
                 ),
                 _statItem(
                   label: "Following",
-                  value: FollowStore.followingCount(uid).toString(),
+                  value: _followingIds.length.toString(),
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => FollowListPage(
                         title: "Following",
-                        users: FollowStore.followingList(uid),
+                        users: _followingIds,
                         emptyText: "Not following anyone yet",
                       ),
                     ),

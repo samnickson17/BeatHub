@@ -143,6 +143,41 @@ class LocalPurchasesBackend implements PurchasesBackend {
 }
 
 // ─────────────────────────────────────────────
+// Local (mock) Follow — kept for offline testing
+// ─────────────────────────────────────────────
+class LocalFollowBackend implements FollowBackend {
+  final Map<String, Set<String>> _following = {};
+
+  @override
+  Future<bool> isFollowing(String myUid, String targetUid) async =>
+      (_following[myUid] ?? {}).contains(targetUid);
+
+  @override
+  Future<void> follow(String myUid, String targetUid) async =>
+      _following.putIfAbsent(myUid, () => {}).add(targetUid);
+
+  @override
+  Future<void> unfollow(String myUid, String targetUid) async =>
+      _following[myUid]?.remove(targetUid);
+
+  @override
+  Future<List<String>> getFollowingIds(String uid) async =>
+      (_following[uid] ?? {}).toList();
+
+  @override
+  Future<List<String>> getFollowerIds(String uid) async {
+    final result = <String>[];
+    _following.forEach((followerId, set) {
+      if (set.contains(uid)) result.add(followerId);
+    });
+    return result;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getUserProfile(String uid) async => null;
+}
+
+// ─────────────────────────────────────────────
 // AppBackend — single access point for the app
 // Swap to Local* classes for offline testing
 // ─────────────────────────────────────────────
@@ -150,4 +185,5 @@ class AppBackend {
   static final AuthBackend auth = FirebaseAuthBackend();
   static final BeatsBackend beats = FirebaseBeatsBackend();
   static final PurchasesBackend purchases = FirebasePurchasesBackend();
+  static final FollowBackend follow = FirebaseFollowBackend();
 }

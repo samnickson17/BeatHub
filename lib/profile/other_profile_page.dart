@@ -1,8 +1,6 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
-import 'follow_store.dart';
+import '../backend/local_backend.dart';
 
 class OtherProfilePage extends StatefulWidget {
   final String currentUserId;
@@ -29,18 +27,35 @@ class OtherProfilePage extends StatefulWidget {
 }
 
 class _OtherProfilePageState extends State<OtherProfilePage> {
-  late bool _isFollowing;
+  bool _isFollowing = false;
+  bool _followLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _isFollowing = FollowStore.isFollowing(widget.currentUserId, widget.userId);
+    _loadFollowState();
+  }
+
+  Future<void> _loadFollowState() async {
+    final following = await AppBackend.follow.isFollowing(
+      widget.currentUserId,
+      widget.userId,
+    );
+    if (mounted)
+      setState(() {
+        _isFollowing = following;
+        _followLoading = false;
+      });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.role == "producer" ? "Producer Profile" : "Artist Profile")),
+      appBar: AppBar(
+        title: Text(
+          widget.role == "producer" ? "Producer Profile" : "Artist Profile",
+        ),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -48,12 +63,7 @@ class _OtherProfilePageState extends State<OtherProfilePage> {
             CircleAvatar(
               radius: 45,
               backgroundColor: Colors.deepPurple,
-              backgroundImage: widget.profileImagePath != null
-                  ? FileImage(File(widget.profileImagePath!))
-                  : null,
-              child: widget.profileImagePath == null
-                  ? const Icon(Icons.person, size: 45, color: Colors.white)
-                  : null,
+              child: const Icon(Icons.person, size: 45, color: Colors.white),
             ),
             const SizedBox(height: 10),
             Text(
@@ -61,24 +71,49 @@ class _OtherProfilePageState extends State<OtherProfilePage> {
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
-            Text("@${widget.username}", style: const TextStyle(color: Colors.grey)),
+            Text(
+              "@${widget.username}",
+              style: const TextStyle(color: Colors.grey),
+            ),
             if (widget.bio.trim().isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(widget.bio, textAlign: TextAlign.center),
             ],
             const SizedBox(height: 12),
             ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  if (_isFollowing) {
-                    FollowStore.unfollow(widget.currentUserId, widget.userId);
-                  } else {
-                    FollowStore.follow(widget.currentUserId, widget.userId);
-                  }
-                  _isFollowing = !_isFollowing;
-                });
-              },
-              child: Text(_isFollowing ? "Unfollow" : "Follow"),
+              onPressed: _followLoading
+                  ? null
+                  : () async {
+                      setState(() => _followLoading = true);
+                      try {
+                        if (_isFollowing) {
+                          await AppBackend.follow.unfollow(
+                            widget.currentUserId,
+                            widget.userId,
+                          );
+                        } else {
+                          await AppBackend.follow.follow(
+                            widget.currentUserId,
+                            widget.userId,
+                          );
+                        }
+                        if (mounted) {
+                          setState(() {
+                            _isFollowing = !_isFollowing;
+                            _followLoading = false;
+                          });
+                        }
+                      } catch (_) {
+                        if (mounted) setState(() => _followLoading = false);
+                      }
+                    },
+              child: _followLoading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(_isFollowing ? "Unfollow" : "Follow"),
             ),
           ],
         ),

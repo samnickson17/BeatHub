@@ -68,3 +68,18 @@ abstract class PurchasesBackend {
   /// Total revenue for a producer.
   Future<double> fetchTotalRevenue(String producerId);
 }
+
+abstract class FollowBackend {
+  Future<bool> isFollowing(String myUid, String targetUid);
+  Future<void> follow(String myUid, String targetUid);
+  Future<void> unfollow(String myUid, String targetUid);
+
+  /// UIDs that [uid] is following.
+  Future<List<String>> getFollowingIds(String uid);
+
+  /// UIDs that follow [uid].
+  Future<List<String>> getFollowerIds(String uid);
+
+  /// Firestore user doc data for a uid.
+  Future<Map<String, dynamic>?> getUserProfile(String uid);
+}
