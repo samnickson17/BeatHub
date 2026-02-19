@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../backend/local_backend.dart';
+import '../beats/beat_detail_page.dart';
+import '../beats/beat_model.dart';
 import 'user_profile_model.dart';
 
 class PublicProfilePage extends StatefulWidget {
@@ -17,11 +19,26 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
   bool _followLoading = true;
   int _followersCount = 0;
   int _followingCount = 0;
+  List<BeatModel> _beats = [];
+  bool _beatsLoading = true;
 
   @override
   void initState() {
     super.initState();
     _loadFollowData();
+    _loadBeats();
+  }
+
+  Future<void> _loadBeats() async {
+    try {
+      final beats = await AppBackend.beats.fetchBeatsByProducer(
+        widget.profile.userId,
+      );
+      if (mounted) setState(() => _beats = beats);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _beatsLoading = false);
+    }
   }
 
   Future<void> _loadFollowData() async {
@@ -135,7 +152,7 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _StatItem(label: "Beats", value: "0"),
+                _StatItem(label: "Beats", value: _beats.length.toString()),
                 _StatItem(label: "Followers", value: followers.toString()),
                 _StatItem(label: "Following", value: following.toString()),
               ],
@@ -157,20 +174,80 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
 
             const SizedBox(height: 12),
 
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: 0,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
+            if (_beatsLoading)
+              const Padding(
+                padding: EdgeInsets.only(top: 20),
+                child: CircularProgressIndicator(),
+              )
+            else if (_beats.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  "No beats uploaded yet.",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              )
+            else
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _beats.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 6,
+                  mainAxisSpacing: 6,
+                ),
+                itemBuilder: (context, index) {
+                  final beat = _beats[index];
+                  return GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BeatDetailPage(beat: beat),
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child:
+                          beat.coverArtPath != null &&
+                              beat.coverArtPath!.startsWith('http')
+                          ? Image.network(
+                              beat.coverArtPath!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) =>
+                                  _BeatTile(title: beat.title),
+                            )
+                          : _BeatTile(title: beat.title),
+                    ),
+                  );
+                },
               ),
-              itemBuilder: (context, index) {
-                return Container(color: Colors.grey.shade300);
-              },
-            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// 🔹 BEAT TILE (fallback when no cover art)
+class _BeatTile extends StatelessWidget {
+  final String title;
+  const _BeatTile({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.deepPurple.shade100,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ),
     );

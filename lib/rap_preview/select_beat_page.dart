@@ -1,6 +1,6 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import '../beats/beat_store.dart';
+import '../backend/local_backend.dart';
 import '../beats/beat_model.dart';
 import 'rap_record_page.dart';
 
@@ -14,6 +14,24 @@ class SelectBeatPage extends StatefulWidget {
 class _SelectBeatPageState extends State<SelectBeatPage> {
   final AudioPlayer _player = AudioPlayer();
   String? _playingBeatId;
+  List<BeatModel> _beats = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBeats();
+  }
+
+  Future<void> _loadBeats() async {
+    try {
+      final beats = await AppBackend.beats.fetchAllBeats();
+      if (mounted) setState(() => _beats = beats);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -36,6 +54,8 @@ class _SelectBeatPageState extends State<SelectBeatPage> {
       await _player.play(
         AssetSource(beat.audioPath.replaceFirst('assets/', '')),
       );
+    } else if (beat.audioPath.startsWith('http')) {
+      await _player.play(UrlSource(beat.audioPath));
     } else {
       await _player.play(DeviceFileSource(beat.audioPath));
     }
@@ -47,21 +67,16 @@ class _SelectBeatPageState extends State<SelectBeatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final List<BeatModel> beats = BeatStore.beats;
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Select Beat'),
-        centerTitle: true,
-      ),
-      body: beats.isEmpty
-          ? const Center(
-              child: Text('No beats available for rap preview'),
-            )
+      appBar: AppBar(title: const Text('Select Beat'), centerTitle: true),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _beats.isEmpty
+          ? const Center(child: Text('No beats available for rap preview'))
           : ListView.builder(
-              itemCount: beats.length,
+              itemCount: _beats.length,
               itemBuilder: (context, index) {
-                final beat = beats[index];
+                final beat = _beats[index];
                 final isPlaying = _playingBeatId == beat.id;
 
                 return Card(
@@ -90,8 +105,7 @@ class _SelectBeatPageState extends State<SelectBeatPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) =>
-                              RapRecordPage(selectedBeat: beat),
+                          builder: (_) => RapRecordPage(selectedBeat: beat),
                         ),
                       );
                     },

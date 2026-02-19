@@ -5,6 +5,8 @@ import '../backend/local_backend.dart';
 import '../data/purchased_beats.dart';
 import '../payment/stripe_payment_page.dart';
 import '../profile/profile_store.dart';
+import '../profile/public_profile_page.dart';
+import '../profile/user_profile_model.dart';
 import '../utils/beat_download_helper.dart';
 import 'beat_model.dart';
 import '../rap_preview/rap_record_page.dart';
@@ -27,6 +29,24 @@ class _BeatDetailPageState extends State<BeatDetailPage> {
   void dispose() {
     _player.dispose();
     super.dispose();
+  }
+
+  Future<void> _goToProducerProfile(BeatModel beat) async {
+    if (beat.producerId.isEmpty) return;
+    final data = await AppBackend.follow.getUserProfile(beat.producerId);
+    if (!mounted) return;
+    final profile = UserProfile(
+      userId: beat.producerId,
+      username: data?['username'] ?? '',
+      displayName: data?['displayName'] ?? beat.producer,
+      bio: data?['bio'] ?? '',
+      role: data?['role'] ?? 'producer',
+      profileCompleted: true,
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => PublicProfilePage(profile: profile)),
+    );
   }
 
   Future<void> _togglePreview(BeatModel beat) async {
@@ -89,7 +109,24 @@ class _BeatDetailPageState extends State<BeatDetailPage> {
                 ),
                 const SizedBox(height: 16),
               ],
-              Text("Producer: ${beat.producer}"),
+              GestureDetector(
+                onTap: () => _goToProducerProfile(beat),
+                child: Text.rich(
+                  TextSpan(
+                    text: "Producer: ",
+                    children: [
+                      TextSpan(
+                        text: beat.producer,
+                        style: const TextStyle(
+                          color: Colors.deepPurple,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               Text("Genre: ${beat.genre}"),
               Text("BPM: ${beat.bpm}"),
               const SizedBox(height: 10),
