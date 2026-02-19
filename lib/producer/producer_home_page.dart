@@ -26,11 +26,12 @@ class _ProducerHomePageState extends State<ProducerHomePage> {
     try {
       final producerId = AppBackend.auth.currentUser?.userId ?? '';
       final beats = await AppBackend.beats.fetchBeatsByProducer(producerId);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _myBeats = beats;
           _isLoading = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);
     }

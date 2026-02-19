@@ -84,7 +84,7 @@ class _BeatDetailPageState extends State<BeatDetailPage> {
                     height: 200,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
                   ),
                 ),
                 const SizedBox(height: 16),

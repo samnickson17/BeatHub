@@ -49,18 +49,20 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
     try {
       if (_isFollowing) {
         await AppBackend.follow.unfollow(myUid, widget.profile.userId);
-        if (mounted)
+        if (mounted) {
           setState(() {
             _isFollowing = false;
             _followersCount = (_followersCount - 1).clamp(0, 999999);
           });
+        }
       } else {
         await AppBackend.follow.follow(myUid, widget.profile.userId);
-        if (mounted)
+        if (mounted) {
           setState(() {
             _isFollowing = true;
             _followersCount++;
           });
+        }
       }
     } catch (_) {}
     if (mounted) setState(() => _followLoading = false);

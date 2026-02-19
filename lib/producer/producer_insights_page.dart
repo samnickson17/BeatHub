@@ -35,11 +35,12 @@ class _ProducerInsightsPageState extends State<ProducerInsightsPage> {
         });
       }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _sales = [];
           _isLoading = false;
         });
+      }
     }
   }
 

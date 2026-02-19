@@ -60,8 +60,9 @@ class BeatDownloadHelper {
 
     // ── Local device file ──
     final sourceFile = File(beat.audioPath);
-    if (!sourceFile.existsSync())
+    if (!sourceFile.existsSync()) {
       throw Exception('Audio source file not found');
+    }
     final docsDir = await getApplicationDocumentsDirectory();
     final downloadDir = Directory('${docsDir.path}/downloads');
     if (!downloadDir.existsSync()) downloadDir.createSync(recursive: true);

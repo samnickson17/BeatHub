@@ -28,17 +28,19 @@ class _PurchasedBeatsPageState extends State<PurchasedBeatsPage> {
     try {
       final uid = AppBackend.auth.currentUser?.userId ?? '';
       final list = await AppBackend.purchases.fetchPurchasesByBuyer(uid);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _purchases = list;
           _isLoading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _purchases = [];
           _isLoading = false;
         });
+      }
     }
   }
 
@@ -85,7 +87,7 @@ class _PurchasedBeatsPageState extends State<PurchasedBeatsPage> {
                               width: 48,
                               height: 48,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
+                              errorBuilder: (_, _, _) =>
                                   const Icon(Icons.music_note),
                             ),
                           )

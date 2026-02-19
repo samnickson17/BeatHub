@@ -34,17 +34,19 @@ class _BeatListPageState extends State<BeatListPage> {
     });
     try {
       final beats = await AppBackend.beats.fetchAllBeats();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _beats = beats;
           _isLoading = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = e.toString();
           _isLoading = false;
         });
+      }
     }
   }
 
@@ -216,7 +218,7 @@ class _CoverThumb extends StatelessWidget {
           width: 48,
           height: 48,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _placeholder(),
+          errorBuilder: (_, _, _) => _placeholder(),
         ),
       );
     }

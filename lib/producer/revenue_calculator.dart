@@ -48,13 +48,14 @@ class _RevenueCalculatorPageState extends State<RevenueCalculatorPage> {
         });
       }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _grossRevenue = 0;
           _totalSales = 0;
           _netRevenue = 0;
           _statsLoading = false;
         });
+      }
     }
   }
 

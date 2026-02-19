@@ -41,11 +41,12 @@ class _OtherProfilePageState extends State<OtherProfilePage> {
       widget.currentUserId,
       widget.userId,
     );
-    if (mounted)
+    if (mounted) {
       setState(() {
         _isFollowing = following;
         _followLoading = false;
       });
+    }
   }
 
   @override
