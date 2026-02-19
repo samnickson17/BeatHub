@@ -1,14 +1,21 @@
-import 'package:file_picker/file_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import 'profile_store.dart';
+import '../backend/local_backend.dart';
 
 class EditArtistProfilePage extends StatefulWidget {
-  final ArtistProfile profile;
+  final String displayName;
+  final String username;
+  final String bio;
+  final String email;
 
   const EditArtistProfilePage({
     super.key,
-    required this.profile,
+    required this.displayName,
+    required this.username,
+    required this.bio,
+    required this.email,
   });
 
   @override
@@ -16,20 +23,29 @@ class EditArtistProfilePage extends StatefulWidget {
 }
 
 class _EditArtistProfilePageState extends State<EditArtistProfilePage> {
-  final _formKey = GlobalKey<FormState>();
+  final _profileFormKey = GlobalKey<FormState>();
+  final _passwordFormKey = GlobalKey<FormState>();
 
   late final TextEditingController _nameController;
   late final TextEditingController _usernameController;
   late final TextEditingController _bioController;
-  String? _profileImagePath;
+
+  final _currentPasswordController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  bool _obscureCurrent = true;
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
+  bool _isSavingProfile = false;
+  bool _isChangingPassword = false;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.profile.name);
-    _usernameController = TextEditingController(text: widget.profile.username);
-    _bioController = TextEditingController(text: widget.profile.bio);
-    _profileImagePath = widget.profile.profileImagePath;
+    _nameController = TextEditingController(text: widget.displayName);
+    _usernameController = TextEditingController(text: widget.username);
+    _bioController = TextEditingController(text: widget.bio);
   }
 
   @override
@@ -37,27 +53,79 @@ class _EditArtistProfilePageState extends State<EditArtistProfilePage> {
     _nameController.dispose();
     _usernameController.dispose();
     _bioController.dispose();
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickProfileImage() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image);
-    if (result != null && result.files.single.path != null) {
-      setState(() => _profileImagePath = result.files.single.path);
+  Future<void> _saveProfile() async {
+    if (!_profileFormKey.currentState!.validate()) return;
+    setState(() => _isSavingProfile = true);
+    try {
+      final uid = AppBackend.auth.currentUser?.userId ?? '';
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'displayName': _nameController.text.trim(),
+        'username': _usernameController.text.trim(),
+        'bio': _bioController.text.trim(),
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Profile updated!")));
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Failed to save: ${e.toString().replaceAll('Exception: ', '')}",
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSavingProfile = false);
     }
   }
 
-  void _save() {
-    if (!_formKey.currentState!.validate()) return;
-    ProfileStore.saveProfile(
-      widget.profile.copyWith(
-        name: _nameController.text.trim(),
-        username: _usernameController.text.trim(),
-        bio: _bioController.text.trim(),
-        profileImagePath: _profileImagePath,
-      ),
-    );
-    Navigator.pop(context, true);
+  Future<void> _changePassword() async {
+    if (!_passwordFormKey.currentState!.validate()) return;
+    setState(() => _isChangingPassword = true);
+    try {
+      final firebaseUser = FirebaseAuth.instance.currentUser!;
+
+      // Re-authenticate before changing password
+      final credential = EmailAuthProvider.credential(
+        email: widget.email,
+        password: _currentPasswordController.text,
+      );
+      await firebaseUser.reauthenticateWithCredential(credential);
+      await firebaseUser.updatePassword(_newPasswordController.text);
+
+      if (!mounted) return;
+      _currentPasswordController.clear();
+      _newPasswordController.clear();
+      _confirmPasswordController.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Password changed successfully!")),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      String msg = 'Password change failed.';
+      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        msg = 'Current password is incorrect.';
+      } else if (e.code == 'weak-password') {
+        msg = 'New password is too weak.';
+      } else if (e.code == 'requires-recent-login') {
+        msg = 'Please log out and log back in before changing your password.';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
+      );
+    } finally {
+      if (mounted) setState(() => _isChangingPassword = false);
+    }
   }
 
   @override
@@ -66,31 +134,112 @@ class _EditArtistProfilePageState extends State<EditArtistProfilePage> {
       appBar: AppBar(title: const Text("Edit Profile"), centerTitle: true),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              OutlinedButton.icon(
-                onPressed: _pickProfileImage,
-                icon: const Icon(Icons.image),
-                label: Text(
-                  _profileImagePath == null ? "Add Profile Image" : "Change Profile Image",
-                ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Profile Info ──
+            const Text(
+              "Profile Info",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 14),
+            Form(
+              key: _profileFormKey,
+              child: Column(
+                children: [
+                  _field(_nameController, "Display Name"),
+                  _field(
+                    _usernameController,
+                    "Username",
+                    validator: (v) => v == null || v.trim().isEmpty
+                        ? "Username is required"
+                        : null,
+                  ),
+                  _field(_bioController, "Bio", maxLines: 3, required: false),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: _isSavingProfile ? null : _saveProfile,
+                    child: _isSavingProfile
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text("Save Profile"),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              _field(_nameController, "Name"),
-              _field(_usernameController, "Username"),
-              _field(_bioController, "Bio", maxLines: 3, required: false),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _save,
-                  child: const Text("Save"),
-                ),
+            ),
+
+            const SizedBox(height: 36),
+            const Divider(),
+            const SizedBox(height: 16),
+
+            // ── Change Password ──
+            const Text(
+              "Change Password",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 14),
+            Form(
+              key: _passwordFormKey,
+              child: Column(
+                children: [
+                  _passwordField(
+                    controller: _currentPasswordController,
+                    label: "Current Password",
+                    obscure: _obscureCurrent,
+                    onToggle: () =>
+                        setState(() => _obscureCurrent = !_obscureCurrent),
+                    validator: (v) => v == null || v.isEmpty
+                        ? "Enter your current password"
+                        : null,
+                  ),
+                  const SizedBox(height: 14),
+                  _passwordField(
+                    controller: _newPasswordController,
+                    label: "New Password",
+                    obscure: _obscureNew,
+                    onToggle: () => setState(() => _obscureNew = !_obscureNew),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return "Enter a new password";
+                      if (v.length < 6) return "Min 6 characters";
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  _passwordField(
+                    controller: _confirmPasswordController,
+                    label: "Confirm New Password",
+                    obscure: _obscureConfirm,
+                    onToggle: () =>
+                        setState(() => _obscureConfirm = !_obscureConfirm),
+                    validator: (v) => v != _newPasswordController.text
+                        ? "Passwords do not match"
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _isChangingPassword ? null : _changePassword,
+                    child: _isChangingPassword
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text("Change Password"),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 30),
+          ],
         ),
       ),
     );
@@ -101,16 +250,42 @@ class _EditArtistProfilePageState extends State<EditArtistProfilePage> {
     String label, {
     int maxLines = 1,
     bool required = true,
+    String? Function(String?)? validator,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: TextFormField(
         controller: controller,
         maxLines: maxLines,
-        validator: required
-            ? (v) => v == null || v.trim().isEmpty ? "$label is required" : null
-            : null,
+        validator:
+            validator ??
+            (required
+                ? (v) => v == null || v.trim().isEmpty
+                      ? "$label is required"
+                      : null
+                : null),
         decoration: InputDecoration(labelText: label),
+      ),
+    );
+  }
+
+  Widget _passwordField({
+    required TextEditingController controller,
+    required String label,
+    required bool obscure,
+    required VoidCallback onToggle,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscure,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: label,
+        suffixIcon: IconButton(
+          icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
+          onPressed: onToggle,
+        ),
       ),
     );
   }

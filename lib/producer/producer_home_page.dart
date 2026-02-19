@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../beats/beat_store.dart';
+import '../backend/local_backend.dart';
+import '../beats/beat_model.dart';
 import '../beats/beat_detail_page.dart';
 import 'upload_beat_page.dart';
 
@@ -11,15 +12,44 @@ class ProducerHomePage extends StatefulWidget {
 }
 
 class _ProducerHomePageState extends State<ProducerHomePage> {
+  List<BeatModel> _myBeats = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMyBeats();
+  }
+
+  Future<void> _loadMyBeats() async {
+    setState(() => _isLoading = true);
+    try {
+      final producerId = AppBackend.auth.currentUser?.userId ?? '';
+      final beats = await AppBackend.beats.fetchBeatsByProducer(producerId);
+      if (mounted)
+        setState(() {
+          _myBeats = beats;
+          _isLoading = false;
+        });
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final myBeats = BeatStore.beats;
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final myBeats = _myBeats;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("All Beats"),
+        title: const Text("My Beats"),
         centerTitle: true,
         actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadMyBeats),
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () async {
@@ -29,15 +59,13 @@ class _ProducerHomePageState extends State<ProducerHomePage> {
                   builder: (_) => const UploadBeatPage(closeOnSuccess: true),
                 ),
               );
-              setState(() {}); // 🔥 refresh list
+              _loadMyBeats();
             },
           ),
         ],
       ),
       body: myBeats.isEmpty
-          ? const Center(
-              child: Text("No beats uploaded yet"),
-            )
+          ? const Center(child: Text("No beats uploaded yet"))
           : ListView.builder(
               itemCount: myBeats.length,
               itemBuilder: (context, index) {
@@ -47,13 +75,13 @@ class _ProducerHomePageState extends State<ProducerHomePage> {
                   leading: const Icon(Icons.music_note),
                   title: Text(beat.title),
                   subtitle: Text(
-                      "${beat.genre} • ₹${beat.price}"),
+                    "${beat.genre} • Rs ${beat.price.toStringAsFixed(0)}",
+                  ),
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            BeatDetailPage(beat: beat),
+                        builder: (_) => BeatDetailPage(beat: beat),
                       ),
                     );
                   },

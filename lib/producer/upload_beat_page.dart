@@ -7,10 +7,7 @@ import '../beats/beat_model.dart';
 class UploadBeatPage extends StatefulWidget {
   final bool closeOnSuccess;
 
-  const UploadBeatPage({
-    super.key,
-    this.closeOnSuccess = false,
-  });
+  const UploadBeatPage({super.key, this.closeOnSuccess = false});
 
   @override
   State<UploadBeatPage> createState() => _UploadBeatPageState();
@@ -27,8 +24,13 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
   final _exclusivePriceController = TextEditingController();
   final _descriptionController = TextEditingController();
 
-  String? _coverArtPath;
-  String? _audioFilePath;
+  List<int>? _coverArtBytes;
+  String? _coverArtExt;
+  String? _coverArtName;
+  List<int>? _audioBytes;
+  String? _audioExt;
+  String? _audioFileName;
+  bool _isUploading = false;
 
   @override
   void dispose() {
@@ -43,19 +45,31 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
   }
 
   Future<void> _pickCoverArt() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image);
-    if (result != null && result.files.single.path != null) {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+    final file = result?.files.single;
+    if (file != null && file.bytes != null) {
       setState(() {
-        _coverArtPath = result.files.single.path!;
+        _coverArtBytes = file.bytes!;
+        _coverArtExt = file.extension ?? 'jpg';
+        _coverArtName = file.name;
       });
     }
   }
 
   Future<void> _pickAudioFile() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.audio);
-    if (result != null && result.files.single.path != null) {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.audio,
+      withData: true,
+    );
+    final file = result?.files.single;
+    if (file != null && file.bytes != null) {
       setState(() {
-        _audioFilePath = result.files.single.path!;
+        _audioBytes = file.bytes!;
+        _audioExt = file.extension ?? 'mp3';
+        _audioFileName = file.name;
       });
     }
   }
@@ -63,7 +77,7 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
   Future<void> _submitBeat() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_audioFilePath == null) {
+    if (_audioBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please select an audio file")),
       );
@@ -87,44 +101,73 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
       return;
     }
 
-    final newBeat = BeatModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+    // Read logged-in producer identity from session
+    final currentUser = AppBackend.auth.currentUser;
+    final producerName = currentUser?.username.isNotEmpty == true
+        ? currentUser!.username
+        : currentUser?.email.split('@').first ?? 'Unknown Producer';
+    final producerId = currentUser?.userId ?? 'unknown';
+
+    final beatMeta = BeatModel(
+      id: '', // ID set by Firestore/Storage
       title: _titleController.text.trim(),
-      producer: "Producer Sam",
-      producerId: "producer_001",
+      producer: producerName,
+      producerId: producerId,
       genre: _genreController.text.trim(),
       bpm: bpm,
       basicLicensePrice: basicPrice,
       premiumLicensePrice: premiumPrice,
       exclusiveLicensePrice: exclusivePrice,
       description: _descriptionController.text.trim(),
-      coverArtPath: _coverArtPath,
-      audioPath: _audioFilePath!,
+      audioPath: '', // Will be replaced with Storage URL
+      coverArtPath: null,
     );
 
-    await AppBackend.beats.addBeat(newBeat);
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Beat uploaded successfully")),
-    );
-
-    if (widget.closeOnSuccess && Navigator.canPop(context)) {
-      Navigator.pop(context, true);
-      return;
+    setState(() => _isUploading = true);
+    try {
+      await AppBackend.beats.uploadBeatWithFiles(
+        beat: beatMeta,
+        audioBytes: _audioBytes!,
+        audioExtension: _audioExt ?? 'mp3',
+        coverArtBytes: _coverArtBytes,
+        coverArtExtension: _coverArtExt,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Beat uploaded successfully!")),
+      );
+      if (widget.closeOnSuccess && Navigator.canPop(context)) {
+        Navigator.pop(context, true);
+        return;
+      }
+      _titleController.clear();
+      _genreController.clear();
+      _bpmController.clear();
+      _basicPriceController.clear();
+      _premiumPriceController.clear();
+      _exclusivePriceController.clear();
+      _descriptionController.clear();
+      setState(() {
+        _coverArtBytes = null;
+        _coverArtExt = null;
+        _coverArtName = null;
+        _audioBytes = null;
+        _audioExt = null;
+        _audioFileName = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Upload failed: ${e.toString().replaceAll('Exception: ', '')}",
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
     }
-
-    _titleController.clear();
-    _genreController.clear();
-    _bpmController.clear();
-    _basicPriceController.clear();
-    _premiumPriceController.clear();
-    _exclusivePriceController.clear();
-    _descriptionController.clear();
-    setState(() {
-      _coverArtPath = null;
-      _audioFilePath = null;
-    });
   }
 
   @override
@@ -140,23 +183,45 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
               _field(_titleController, "Beat Title"),
               _field(_genreController, "Genre"),
               _field(_bpmController, "BPM", isNumber: true),
-              _field(_basicPriceController, "Basic License Price (Rs)", isNumber: true),
-              _field(_premiumPriceController, "Premium License Price (Rs)", isNumber: true),
-              _field(_exclusivePriceController, "Exclusive License Price (Rs)", isNumber: true),
+              _field(
+                _basicPriceController,
+                "Basic License Price (Rs)",
+                isNumber: true,
+              ),
+              _field(
+                _premiumPriceController,
+                "Premium License Price (Rs)",
+                isNumber: true,
+              ),
+              _field(
+                _exclusivePriceController,
+                "Exclusive License Price (Rs)",
+                isNumber: true,
+              ),
               _field(_descriptionController, "Description", maxLines: 3),
               const SizedBox(height: 20),
               OutlinedButton.icon(
-                icon: const Icon(Icons.image),
+                icon: Icon(
+                  _coverArtBytes == null ? Icons.image : Icons.check_circle,
+                  color: _coverArtBytes == null ? null : Colors.green,
+                ),
                 label: Text(
-                  _coverArtPath == null ? "Select Cover Art" : "Cover Art Selected",
+                  _coverArtBytes == null
+                      ? "Select Cover Art (optional)"
+                      : _coverArtName ?? "Cover Art Selected",
                 ),
                 onPressed: _pickCoverArt,
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                icon: const Icon(Icons.music_note),
+                icon: Icon(
+                  _audioBytes == null ? Icons.music_note : Icons.check_circle,
+                  color: _audioBytes == null ? null : Colors.green,
+                ),
                 label: Text(
-                  _audioFilePath == null ? "Select Audio File" : "Audio File Selected",
+                  _audioBytes == null
+                      ? "Select Audio File *"
+                      : _audioFileName ?? "Audio File Selected",
                 ),
                 onPressed: _pickAudioFile,
               ),
@@ -164,8 +229,17 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _submitBeat,
-                  child: const Text("Upload Beat"),
+                  onPressed: _isUploading ? null : _submitBeat,
+                  child: _isUploading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text("Upload Beat"),
                 ),
               ),
             ],
@@ -187,9 +261,8 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
         controller: controller,
         maxLines: maxLines,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-        validator: (value) => value == null || value.trim().isEmpty
-            ? "$label is required"
-            : null,
+        validator: (value) =>
+            value == null || value.trim().isEmpty ? "$label is required" : null,
         decoration: InputDecoration(labelText: label),
       ),
     );

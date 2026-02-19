@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'profile_store.dart';
-import 'create_artist_profile_page.dart';
+import '../backend/local_backend.dart';
+import '../core/routes.dart';
 import 'artist_profile_page.dart';
 
 class ProfileGate extends StatelessWidget {
@@ -8,12 +8,21 @@ class ProfileGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userId = ProfileStore.currentUserId;
+    final user = AppBackend.auth.currentUser;
 
-    if (!ProfileStore.isProfileCompleted(userId)) {
-      return const CreateArtistProfilePage();
+    // No session — boot to login
+    if (user == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.login,
+          (route) => false,
+        );
+      });
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    // Profile always shows — user doc was created at signup
     return const ArtistProfilePage();
   }
 }

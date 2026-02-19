@@ -82,6 +82,32 @@ class LocalBeatsBackend implements BeatsBackend {
   Future<void> updateBeat(BeatModel beat) async {
     BeatStore.updateBeat(beat);
   }
+
+  @override
+  Future<void> uploadBeatWithFiles({
+    required BeatModel beat,
+    required List<int> audioBytes,
+    required String audioExtension,
+    List<int>? coverArtBytes,
+    String? coverArtExtension,
+  }) async {
+    // Local mock: just store with the local file paths
+    final mockBeat = BeatModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: beat.title,
+      producer: beat.producer,
+      producerId: beat.producerId,
+      genre: beat.genre,
+      bpm: beat.bpm,
+      basicLicensePrice: beat.basicLicensePrice,
+      premiumLicensePrice: beat.premiumLicensePrice,
+      exclusiveLicensePrice: beat.exclusiveLicensePrice,
+      description: beat.description,
+      audioPath: 'local_mock.$audioExtension',
+      coverArtPath: null,
+    );
+    BeatStore.addBeat(mockBeat);
+  }
 }
 
 // ─────────────────────────────────────────────

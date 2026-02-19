@@ -9,10 +9,7 @@ import '../profile/profile_gate.dart';
 class BuyerBottomNav extends StatefulWidget {
   final int initialIndex;
 
-  const BuyerBottomNav({
-    super.key,
-    this.initialIndex = 0,
-  });
+  const BuyerBottomNav({super.key, this.initialIndex = 0});
 
   @override
   State<BuyerBottomNav> createState() => _BuyerBottomNavState();
@@ -46,11 +43,14 @@ class _BuyerBottomNavState extends State<BuyerBottomNav> {
           setState(() => _currentIndex = index);
         },
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: ""),
-          BottomNavigationBarItem(icon: Icon(Icons.music_note), label: ""),
-          BottomNavigationBarItem(icon: Icon(Icons.mic), label: ""),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: ""),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: ""),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Discover"),
+          BottomNavigationBarItem(icon: Icon(Icons.music_note), label: "Beats"),
+          BottomNavigationBarItem(icon: Icon(Icons.mic), label: "Rap"),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: "Purchases",
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
         ],
       ),
     );

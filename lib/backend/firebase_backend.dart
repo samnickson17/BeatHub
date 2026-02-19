@@ -1,7 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 import '../beats/beat_model.dart';
+import '../profile/profile_store.dart';
 import 'backend_contracts.dart';
 
 // ─────────────────────────────────────────────
@@ -33,6 +37,11 @@ class FirebaseAuthBackend implements AuthBackend {
             ? AppUserRole.producer
             : AppUserRole.buyer,
         username: data['username'] ?? '',
+      );
+      ProfileStore.setCurrentUserFromSession(
+        _currentUser!,
+        username: data['username'],
+        displayName: data['displayName'],
       );
       return _currentUser;
     } catch (_) {
@@ -68,7 +77,11 @@ class FirebaseAuthBackend implements AuthBackend {
           : AppUserRole.buyer,
       username: data['username'] ?? '',
     );
-
+    ProfileStore.setCurrentUserFromSession(
+      _currentUser!,
+      username: data['username'],
+      displayName: data['displayName'],
+    );
     return _currentUser;
   }
 
@@ -106,7 +119,11 @@ class FirebaseAuthBackend implements AuthBackend {
       role: role,
       username: username,
     );
-
+    ProfileStore.setCurrentUserFromSession(
+      _currentUser!,
+      username: username,
+      displayName: username,
+    );
     return _currentUser!;
   }
 
@@ -146,20 +163,72 @@ class FirebaseBeatsBackend implements BeatsBackend {
 
   @override
   Future<List<BeatModel>> fetchBeatsByProducer(String producerId) async {
+    // No compound index needed — filter only, sort in Dart
     final snapshot = await _db
         .collection('beats')
         .where('producerId', isEqualTo: producerId)
-        .orderBy('createdAt', descending: true)
         .get();
-    return snapshot.docs.map((doc) {
+    final beats = snapshot.docs.map((doc) {
       final data = Map<String, dynamic>.from(doc.data());
       data['id'] = doc.id;
       return BeatModel.fromJson(data);
     }).toList();
+    beats.sort((a, b) {
+      final ta = snapshot.docs
+          .firstWhere((d) => d.id == a.id)
+          .data()['createdAt'];
+      final tb = snapshot.docs
+          .firstWhere((d) => d.id == b.id)
+          .data()['createdAt'];
+      if (ta == null || tb == null) return 0;
+      return (tb as Timestamp).compareTo(ta as Timestamp);
+    });
+    return beats;
   }
 
   @override
   Future<void> updateBeat(BeatModel beat) async {
     await _db.collection('beats').doc(beat.id).update(beat.toJson());
+  }
+
+  @override
+  Future<void> uploadBeatWithFiles({
+    required BeatModel beat,
+    required List<int> audioBytes,
+    required String audioExtension,
+    List<int>? coverArtBytes,
+    String? coverArtExtension,
+  }) async {
+    final beatId = DateTime.now().millisecondsSinceEpoch.toString();
+    final storage = FirebaseStorage.instance;
+
+    // Upload audio
+    final audioRef = storage.ref('beats/$beatId/audio.$audioExtension');
+    await audioRef.putData(Uint8List.fromList(audioBytes));
+    final audioUrl = await audioRef.getDownloadURL();
+
+    // Upload cover art (optional)
+    String? coverUrl;
+    if (coverArtBytes != null && coverArtExtension != null) {
+      final coverRef = storage.ref('beats/$beatId/cover.$coverArtExtension');
+      await coverRef.putData(Uint8List.fromList(coverArtBytes));
+      coverUrl = await coverRef.getDownloadURL();
+    }
+
+    await _db.collection('beats').doc(beatId).set({
+      'title': beat.title,
+      'producerId': beat.producerId,
+      'producerName': beat.producer,
+      'genre': beat.genre,
+      'bpm': beat.bpm,
+      'price': beat.basicLicensePrice,
+      'basicLicensePrice': beat.basicLicensePrice,
+      'premiumLicensePrice': beat.premiumLicensePrice,
+      'exclusiveLicensePrice': beat.exclusiveLicensePrice,
+      'description': beat.description,
+      'audioUrl': audioUrl,
+      'coverArtUrl': coverUrl,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
   }
 }

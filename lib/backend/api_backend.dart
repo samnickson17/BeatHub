@@ -156,6 +156,18 @@ class ApiBeatsBackend implements BeatsBackend {
       throw Exception('Failed to update beat: $e');
     }
   }
+
+  @override
+  Future<void> uploadBeatWithFiles({
+    required BeatModel beat,
+    required List<int> audioBytes,
+    required String audioExtension,
+    List<int>? coverArtBytes,
+    String? coverArtExtension,
+  }) async {
+    // Not implemented for Express backend — use addBeat instead
+    await addBeat(beat);
+  }
 }
 
 class ApiBackend {

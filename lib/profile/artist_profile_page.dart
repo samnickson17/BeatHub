@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../backend/local_backend.dart';
@@ -8,8 +7,6 @@ import '../data/purchased_beats.dart';
 import 'edit_artist_profile_page.dart';
 import 'follow_list_page.dart';
 import 'follow_store.dart';
-import 'profile_store.dart';
-import 'purchased_beats_page.dart';
 
 class ArtistProfilePage extends StatefulWidget {
   const ArtistProfilePage({super.key});
@@ -19,135 +16,185 @@ class ArtistProfilePage extends StatefulWidget {
 }
 
 class _ArtistProfilePageState extends State<ArtistProfilePage> {
+  Map<String, dynamic>? _userData;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() => _isLoading = true);
+    try {
+      final uid = AppBackend.auth.currentUser?.userId ?? '';
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      if (mounted) {
+        setState(() {
+          _userData = doc.data() ?? {};
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final profile = ProfileStore.getProfile(ProfileStore.currentUserId)!;
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final user = AppBackend.auth.currentUser;
+    final displayName = (_userData?['displayName'] ?? '').toString().trim();
+    final username = (_userData?['username'] ?? '').toString().trim();
+    final bio = (_userData?['bio'] ?? '').toString().trim();
+    final email = user?.email ?? '';
+    final uid = user?.userId ?? '';
     final purchases = PurchasedBeatsStore.purchasedBeats;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Artist Profile"),
+        title: const Text("My Profile"),
         centerTitle: true,
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadProfile),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Avatar + name ──
             Center(
               child: Column(
                 children: [
                   CircleAvatar(
-                    radius: 45,
+                    radius: 50,
                     backgroundColor: Colors.deepPurple,
-                    backgroundImage: profile.profileImagePath != null
-                        ? FileImage(File(profile.profileImagePath!))
-                        : null,
-                    child: profile.profileImagePath == null
-                        ? const Icon(Icons.person, size: 45, color: Colors.white)
-                        : null,
+                    child: Text(
+                      displayName.isNotEmpty
+                          ? displayName[0].toUpperCase()
+                          : '?',
+                      style: const TextStyle(
+                        fontSize: 36,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   Text(
-                    profile.name,
+                    displayName.isNotEmpty ? displayName : 'No name set',
                     style: const TextStyle(
-                      fontSize: 20,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "@${profile.username}",
+                    username.isNotEmpty ? '@$username' : email,
                     style: const TextStyle(color: Colors.grey),
                   ),
-                  if (profile.bio.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    email,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                  if (bio.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
-                      profile.bio,
+                      bio,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.grey),
+                      style: const TextStyle(color: Colors.white70),
                     ),
                   ],
-                  const SizedBox(height: 12),
-                  ElevatedButton(
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.edit),
+                    label: const Text("Edit Profile"),
                     onPressed: () async {
                       final changed = await Navigator.push<bool>(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => EditArtistProfilePage(profile: profile),
+                          builder: (_) => EditArtistProfilePage(
+                            displayName: displayName,
+                            username: username,
+                            bio: bio,
+                            email: email,
+                          ),
                         ),
                       );
-                      if (changed == true && mounted) {
-                        setState(() {});
-                      }
+                      if (changed == true && mounted) _loadProfile();
                     },
-                    child: const Text("Edit Profile"),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+
+            const SizedBox(height: 24),
+
+            // ── Stats row ──
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _statItem(
                   label: "Purchased",
                   value: purchases.length.toString(),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const PurchasedBeatsPage(),
-                      ),
-                    );
-                  },
                 ),
                 _statItem(
                   label: "Followers",
-                  value: FollowStore.followersCount(ProfileStore.currentUserId)
-                      .toString(),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => FollowListPage(
-                          title: "Followers",
-                          users: FollowStore.followersList(
-                            ProfileStore.currentUserId,
-                          ),
-                          emptyText: "No followers yet",
-                        ),
+                  value: FollowStore.followersCount(uid).toString(),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FollowListPage(
+                        title: "Followers",
+                        users: FollowStore.followersList(uid),
+                        emptyText: "No followers yet",
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
                 _statItem(
                   label: "Following",
-                  value: FollowStore.followingCount(ProfileStore.currentUserId)
-                      .toString(),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => FollowListPage(
-                          title: "Following",
-                          users: FollowStore.followingList(
-                            ProfileStore.currentUserId,
-                          ),
-                          emptyText: "No following yet",
-                        ),
+                  value: FollowStore.followingCount(uid).toString(),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FollowListPage(
+                        title: "Following",
+                        users: FollowStore.followingList(uid),
+                        emptyText: "Not following anyone yet",
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
               ],
             ),
+
             const SizedBox(height: 30),
+            const Divider(),
+            const SizedBox(height: 10),
+
+            // ── Logout ──
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                icon: const Icon(Icons.logout),
-                label: const Text("Logout"),
+                icon: const Icon(Icons.logout, color: Colors.redAccent),
+                label: const Text(
+                  "Logout",
+                  style: TextStyle(color: Colors.redAccent),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.redAccent),
+                ),
                 onPressed: () async {
                   await AppBackend.auth.logout();
                   if (!context.mounted) return;
@@ -159,6 +206,8 @@ class _ArtistProfilePageState extends State<ArtistProfilePage> {
                 },
               ),
             ),
+
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -174,12 +223,12 @@ class _ArtistProfilePageState extends State<ArtistProfilePage> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
           children: [
             Text(
               value,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(label, style: const TextStyle(color: Colors.grey)),

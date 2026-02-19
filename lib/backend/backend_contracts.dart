@@ -41,4 +41,15 @@ abstract class BeatsBackend {
   Future<void> addBeat(BeatModel beat);
   Future<List<BeatModel>> fetchBeatsByProducer(String producerId);
   Future<void> updateBeat(BeatModel beat);
+
+  /// Uploads audio + optional cover art bytes to storage, then saves to DB.
+  /// Bytes are read at file-pick time (withData: true) to avoid dart:io file
+  /// path issues on Android (content:// URIs).
+  Future<void> uploadBeatWithFiles({
+    required BeatModel beat,
+    required List<int> audioBytes,
+    required String audioExtension,
+    List<int>? coverArtBytes,
+    String? coverArtExtension,
+  });
 }

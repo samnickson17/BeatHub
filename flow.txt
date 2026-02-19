@@ -350,3 +350,9 @@ Admin Dashboard (route: /admin — protected, only accessible if role == admin)
 ---
 
 This flow covers every screen, every navigation path, every async action, and every role. Reference this as the single source of truth for all implementation decisions going forward.
+
+Collection	Document ID	Key Fields
+users	uid (Firebase Auth UID)	email, role (buyer/producer/admin), username, displayName, bio, genres[], avatarUrl, followersCount, followingCount
+beats	auto-ID	title, producerId, producerName, genre, bpm, basicLicensePrice, premiumLicensePrice, exclusiveLicensePrice, description, audioUrl, coverArtUrl, createdAt
+purchases	auto-ID	buyerId, beatId, beatTitle, producerId, license, amount, transactionId, purchasedAt
+follows	{followerId}_{followedId}	followerId, followedId, createdAt
