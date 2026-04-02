@@ -2,36 +2,15 @@ import '../backend/backend_contracts.dart';
 import 'user_profile_model.dart';
 
 class ProfileStore {
-  static const String _fallbackUserId = "artist_001";
-
   static UserProfile? _currentUser;
 
-  // Generic app profile records (used by follow/feed/public pages).
-  static final Map<String, UserProfile> _profiles = {
-    "producer_001": UserProfile(
-      userId: "producer_001",
-      username: "producersam",
-      displayName: "Producer Sam",
-      bio: "Beat producer",
-      role: "producer",
-      profileImagePath: null,
-      profileCompleted: true,
-    ),
-    "producer_002": UserProfile(
-      userId: "producer_002",
-      username: "produceralex",
-      displayName: "Producer Alex",
-      bio: "LoFi and chill vibe beats",
-      role: "producer",
-      profileImagePath: null,
-      profileCompleted: true,
-    ),
-  };
+  // Profile records populated from Firebase — no hardcoded data.
+  static final Map<String, UserProfile> _profiles = {};
 
   // Artist-profile view model (used by artist profile/edit pages).
   static final Map<String, ArtistProfile> _artistProfiles = {};
 
-  static String get currentUserId => _currentUser?.userId ?? _fallbackUserId;
+  static String get currentUserId => _currentUser?.userId ?? '';
 
   static UserProfile? get currentUser => _currentUser;
 
