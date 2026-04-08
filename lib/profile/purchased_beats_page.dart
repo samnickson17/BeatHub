@@ -16,6 +16,7 @@ class PurchasedBeatsPage extends StatefulWidget {
 class _PurchasedBeatsPageState extends State<PurchasedBeatsPage> {
   List<PurchasedBeat>? _purchases;
   bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -24,7 +25,10 @@ class _PurchasedBeatsPageState extends State<PurchasedBeatsPage> {
   }
 
   Future<void> _load() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     try {
       final uid = AppBackend.auth.currentUser?.userId ?? '';
       final list = await AppBackend.purchases.fetchPurchasesByBuyer(uid);
@@ -34,10 +38,10 @@ class _PurchasedBeatsPageState extends State<PurchasedBeatsPage> {
           _isLoading = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() {
-          _purchases = [];
+          _error = e.toString();
           _isLoading = false;
         });
       }
@@ -63,6 +67,35 @@ class _PurchasedBeatsPageState extends State<PurchasedBeatsPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Failed to load purchases',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _error!,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _load,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
           : (_purchases == null || _purchases!.isEmpty)
           ? const Center(
               child: Text(

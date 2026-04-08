@@ -14,14 +14,6 @@
       },
       "oauth_client": [
         {
-          "client_id": "1037602740027-m7v3rqi4ljfaipcreb4aq13pv32sir8r.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.beathub_final",
-            "certificate_hash": "ca903b3b65fd1d7c1410670d4e03170c79602ec7"
-          }
-        },
-        {
           "client_id": "1037602740027-7ctkskvqpdkmgfgl8u6qivob2nphfcl0.apps.googleusercontent.com",
           "client_type": 3
         }

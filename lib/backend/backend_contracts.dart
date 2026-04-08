@@ -35,6 +35,12 @@ abstract class AuthBackend {
   });
 
   Future<void> logout();
+
+  /// Signs in with Google OAuth.
+  /// Returns a record: (user, isNewUser).
+  /// [isNewUser] is true when a Firestore profile doesn't exist yet —
+  /// callers should then ask for a username and role.
+  Future<(SessionUser?, bool)> signInWithGoogle();
 }
 
 abstract class BeatsBackend {

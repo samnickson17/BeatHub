@@ -42,18 +42,24 @@ class BeatModel {
     }
   }
 
-  // Create BeatModel from JSON (API response)
+  // Create BeatModel from JSON (Firestore / API response)
   factory BeatModel.fromJson(Map<String, dynamic> json) {
+    // Firestore stores numbers as int or double — use (x as num) to handle both.
+    double _d(dynamic v, [double fallback = 0.0]) =>
+        v == null ? fallback : (v as num).toDouble();
+    int _i(dynamic v, [int fallback = 0]) =>
+        v == null ? fallback : (v as num).toInt();
+
     return BeatModel(
       id: json['_id'] ?? json['id'] ?? '',
       title: json['title'] ?? '',
       producer: json['producerName'] ?? json['producer'] ?? '',
       producerId: json['producerId'] ?? '',
       genre: json['genre'] ?? '',
-      bpm: json['bpm'] ?? 0,
-      basicLicensePrice: (json['price'] ?? json['basicLicensePrice'] ?? 0).toDouble(),
-      premiumLicensePrice: json['premiumLicensePrice'] ?? json['price']?.toDouble() ?? 0.0,
-      exclusiveLicensePrice: json['exclusiveLicensePrice'] ?? json['price']?.toDouble() ?? 0.0,
+      bpm: _i(json['bpm']),
+      basicLicensePrice: _d(json['basicLicensePrice'] ?? json['price']),
+      premiumLicensePrice: _d(json['premiumLicensePrice'] ?? json['price']),
+      exclusiveLicensePrice: _d(json['exclusiveLicensePrice'] ?? json['price']),
       description: json['description'] ?? '',
       audioPath: json['audioUrl'] ?? json['audioPath'] ?? '',
       coverArtPath: json['coverArtUrl'] ?? json['coverArtPath'],

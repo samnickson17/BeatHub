@@ -58,6 +58,10 @@ class LocalAuthBackend implements AuthBackend {
     _currentUser = null;
     ProfileStore.clearCurrentUser();
   }
+
+  @override
+  Future<(SessionUser?, bool)> signInWithGoogle() async =>
+      throw UnimplementedError('Google sign-in not available in local mode.');
 }
 
 // ─────────────────────────────────────────────

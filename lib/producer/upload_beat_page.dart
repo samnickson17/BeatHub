@@ -16,8 +16,13 @@ class UploadBeatPage extends StatefulWidget {
 class _UploadBeatPageState extends State<UploadBeatPage> {
   final _formKey = GlobalKey<FormState>();
 
+  static const List<String> _genres = [
+    'Hip Hop', 'Drill', 'Trap', 'R&B', 'Afrobeats',
+    'Pop', 'Lo-Fi', 'Dancehall', 'Amapiano', 'Other',
+  ];
+
   final _titleController = TextEditingController();
-  final _genreController = TextEditingController();
+  String? _selectedGenre;
   final _bpmController = TextEditingController();
   final _basicPriceController = TextEditingController();
   final _premiumPriceController = TextEditingController();
@@ -35,7 +40,6 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
   @override
   void dispose() {
     _titleController.dispose();
-    _genreController.dispose();
     _bpmController.dispose();
     _basicPriceController.dispose();
     _premiumPriceController.dispose();
@@ -77,6 +81,13 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
   Future<void> _submitBeat() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_selectedGenre == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select a genre")),
+      );
+      return;
+    }
+
     if (_audioBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please select an audio file")),
@@ -113,7 +124,7 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
       title: _titleController.text.trim(),
       producer: producerName,
       producerId: producerId,
-      genre: _genreController.text.trim(),
+      genre: _selectedGenre!,
       bpm: bpm,
       basicLicensePrice: basicPrice,
       premiumLicensePrice: premiumPrice,
@@ -141,13 +152,13 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
         return;
       }
       _titleController.clear();
-      _genreController.clear();
       _bpmController.clear();
       _basicPriceController.clear();
       _premiumPriceController.clear();
       _exclusivePriceController.clear();
       _descriptionController.clear();
       setState(() {
+        _selectedGenre = null;
         _coverArtBytes = null;
         _coverArtExt = null;
         _coverArtName = null;
@@ -181,7 +192,19 @@ class _UploadBeatPageState extends State<UploadBeatPage> {
           child: Column(
             children: [
               _field(_titleController, "Beat Title"),
-              _field(_genreController, "Genre"),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 15),
+                child: DropdownButtonFormField<String>(
+                  value: _selectedGenre,
+                  decoration: const InputDecoration(labelText: "Genre"),
+                  items: _genres
+                      .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                      .toList(),
+                  onChanged: (val) => setState(() => _selectedGenre = val),
+                  validator: (val) =>
+                      val == null ? "Please select a genre" : null,
+                ),
+              ),
               _field(_bpmController, "BPM", isNumber: true),
               _field(
                 _basicPriceController,
