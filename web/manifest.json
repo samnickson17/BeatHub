@@ -1,6 +1,6 @@
 {
-    "name": "beathub_final",
-    "short_name": "beathub_final",
+    "name": "BeatHub",
+    "short_name": "BeatHub",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

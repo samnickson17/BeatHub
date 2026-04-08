@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "beathub_final" "\0"
+            VALUE "FileDescription", "BeatHub" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "beathub_final" "\0"
+            VALUE "InternalName", "BeatHub" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "beathub_final.exe" "\0"
-            VALUE "ProductName", "beathub_final" "\0"
+            VALUE "OriginalFilename", "BeatHub.exe" "\0"
+            VALUE "ProductName", "BeatHub" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

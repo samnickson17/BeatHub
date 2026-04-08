@@ -85,6 +85,12 @@ class ApiAuthBackend implements AuthBackend {
   Future<void> logout() async {
     _currentUser = null;
   }
+
+  @override
+  Future<(SessionUser?, bool)> signInWithGoogle() async =>
+      throw UnimplementedError(
+        'Google sign-in is not implemented for API backend.',
+      );
 }
 
 class ApiBeatsBackend implements BeatsBackend {
