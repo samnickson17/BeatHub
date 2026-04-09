@@ -66,9 +66,9 @@ class _SelectBeatPageState extends State<SelectBeatPage> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not preview beat: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not preview beat: $e')));
     }
   }
 

@@ -51,7 +51,9 @@ class _RapPreviewPageState extends State<RapPreviewPage> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   bool _isMissingFileError(Object error) {
@@ -229,7 +231,9 @@ class _RapPreviewPageState extends State<RapPreviewPage> {
         final exists = await _recordingPathExists(rec.path);
         if (!exists) {
           await _removeByPath(rec.path);
-          _showMessage('Recording file is missing and was removed from the list.');
+          _showMessage(
+            'Recording file is missing and was removed from the list.',
+          );
           return;
         }
       }
@@ -260,7 +264,9 @@ class _RapPreviewPageState extends State<RapPreviewPage> {
 
       if (_isMissingFileError(e)) {
         await _removeByPath(rec.path);
-        _showMessage('Recording file is missing and was removed from the list.');
+        _showMessage(
+          'Recording file is missing and was removed from the list.',
+        );
         return;
       }
       _showMessage('Could not play this remix: $e');
