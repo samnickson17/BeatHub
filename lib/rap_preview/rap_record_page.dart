@@ -54,6 +54,78 @@ class _RapRecordPageState extends State<RapRecordPage> {
   // Shift buffer so bars scroll left as new samples arrive
   final _rng = math.Random();
 
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  bool _isMissingFileError(Object error) {
+    final raw = error.toString();
+    return raw.contains('ENOENT') ||
+        raw.contains('No such file or directory') ||
+        raw.contains('FileNotFoundException');
+  }
+
+  String _normalizeStoredPath(String rawPath) {
+    final trimmed = rawPath.trim();
+    if (trimmed.isEmpty) return trimmed;
+    final uri = Uri.tryParse(trimmed);
+    if (uri != null && uri.scheme == 'file') {
+      try {
+        return uri.toFilePath();
+      } catch (_) {
+        return trimmed;
+      }
+    }
+    return trimmed;
+  }
+
+  bool _isStreamablePath(String path) {
+    return path.startsWith('http://') ||
+        path.startsWith('https://') ||
+        path.startsWith('content://') ||
+        path.startsWith('blob:') ||
+        path.startsWith('data:');
+  }
+
+  Future<String?> _finalizeRecordedPath(String? rawRecordedPath) async {
+    if (rawRecordedPath == null) return null;
+
+    final normalized = _normalizeStoredPath(rawRecordedPath);
+    if (normalized.isEmpty) return null;
+
+    if (_isStreamablePath(normalized)) {
+      debugPrint('[RapRecord] Recorder returned stream path: $normalized');
+      return normalized;
+    }
+
+    debugPrint('[RapRecord] Finalized local file path: $normalized');
+    return normalized;
+  }
+
+  Source _voiceSourceForPath(String path) {
+    final normalized = _normalizeStoredPath(path);
+    if (_isStreamablePath(normalized)) {
+      return UrlSource(normalized);
+    }
+    return DeviceFileSource(normalized);
+  }
+
+  Future<void> _playBeatTrack({double volume = 0.5}) async {
+    await _beatPlayer.stop();
+    await _beatPlayer.setVolume(volume);
+    final audioPath = widget.selectedBeat.audioPath;
+    if (audioPath.startsWith("assets/")) {
+      await _beatPlayer.play(
+        AssetSource(audioPath.replaceFirst("assets/", "")),
+      );
+    } else if (audioPath.startsWith("http")) {
+      await _beatPlayer.play(UrlSource(audioPath));
+    } else {
+      await _beatPlayer.play(DeviceFileSource(audioPath));
+    }
+  }
+
   void _startAmplitudeMonitor() {
     _ampSub?.cancel();
     _ampSub = _recorder
@@ -101,24 +173,26 @@ class _RapRecordPageState extends State<RapRecordPage> {
         return;
       }
 
-      await _beatPlayer.stop();
-      await _beatPlayer.setVolume(1.0);
-      final audioPath = widget.selectedBeat.audioPath;
-      if (audioPath.startsWith("assets/")) {
-        await _beatPlayer.play(
-          AssetSource(audioPath.replaceFirst("assets/", "")),
-        );
-      } else if (audioPath.startsWith("http")) {
-        await _beatPlayer.play(UrlSource(audioPath));
-      } else {
-        await _beatPlayer.play(DeviceFileSource(audioPath));
-      }
+      await _playBeatTrack(volume: 0.28);
 
       final path = await _buildRecordingPath();
+      debugPrint('[RapRecord] Starting record to path: $path');
       await _recorder.start(
         RecordConfig(
           encoder: kIsWeb ? AudioEncoder.opus : AudioEncoder.aacLc,
           numChannels: 1,
+          autoGain: true,
+          echoCancel: false,
+          noiseSuppress: false,
+          audioInterruption: AudioInterruptionMode.none,
+          androidConfig: const AndroidRecordConfig(
+            useLegacy: true,
+            audioSource: AndroidAudioSource.mic,
+            manageBluetooth: false,
+            muteAudio: false,
+            speakerphone: false,
+            audioManagerMode: AudioManagerMode.modeInCommunication,
+          ),
         ),
         path: path,
       );
@@ -147,22 +221,27 @@ class _RapRecordPageState extends State<RapRecordPage> {
     try {
       await _beatPlayer.stop();
       _stopAmplitudeMonitor();
-      final recordedPath = await _recorder.stop();
+      final rawRecordedPath = await _recorder.stop();
+      final recordedPath = await _finalizeRecordedPath(rawRecordedPath);
+      debugPrint('[RapRecord] stop() returned: $rawRecordedPath');
+      debugPrint('[RapRecord] finalized path: $recordedPath');
 
-      if (recordedPath != null) {
+      if (recordedPath != null && recordedPath.isNotEmpty) {
         await _saveRecordingMetadata(recordedPath);
       }
 
       if (!mounted) return;
       setState(() {
-        _recordedPath = recordedPath;
+        _recordedPath = (recordedPath == null || recordedPath.isEmpty)
+            ? null
+            : recordedPath;
         _isRecording = false;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            recordedPath == null
+            recordedPath == null || recordedPath.isEmpty
                 ? "Recording stopped (no data)"
                 : "Recording saved — tap Preview Mix!",
           ),
@@ -189,37 +268,45 @@ class _RapRecordPageState extends State<RapRecordPage> {
     await _previewSub?.cancel();
     _previewSub = null;
 
-    // ── Beat ─────────────────────────────────────────────────────────────
-    await _beatPlayer.stop();
-    await _beatPlayer.setVolume(1.0);
-    final audioPath = widget.selectedBeat.audioPath;
-    if (audioPath.startsWith("assets/")) {
-      await _beatPlayer.play(
-        AssetSource(audioPath.replaceFirst("assets/", "")),
-      );
-    } else if (audioPath.startsWith("http")) {
-      await _beatPlayer.play(UrlSource(audioPath));
-    } else {
-      await _beatPlayer.play(DeviceFileSource(audioPath));
-    }
+    try {
+      // ── Voice first (MIUI stability) ───────────────────────────────────
+      final recPath = _recordedPath!;
+      if (kIsWeb) {
+        // On web: use raw HTMLAudioElement so it plays in parallel with the beat
+        _webVoice.play(recPath, onEnded: () async => _stopPreview());
+        await _playBeatTrack(volume: 0.22);
+      } else {
+        await _nativeVoicePlayer.setVolume(1.0);
+        await _nativeVoicePlayer.play(_voiceSourceForPath(recPath));
+        debugPrint('[RapRecord] Voice play source: $recPath');
 
-    // ── Voice ────────────────────────────────────────────────────────────
-    final recPath = _recordedPath!;
-    if (kIsWeb) {
-      // On web: use raw HTMLAudioElement so it plays in parallel with the beat
-      _webVoice.play(recPath, onEnded: () async => _stopPreview());
-    } else {
-      await _nativeVoicePlayer.setVolume(1.0);
-      await _nativeVoicePlayer.play(DeviceFileSource(recPath));
-      _previewSub = _nativeVoicePlayer.onPlayerComplete.listen((_) async {
-        await _previewSub?.cancel();
-        _previewSub = null;
-        await _beatPlayer.stop();
-        if (mounted) setState(() => _isPreviewPlaying = false);
-      });
-    }
+        // Slight stagger prevents some Android devices from muting second player.
+        await Future.delayed(const Duration(milliseconds: 80));
+        await _playBeatTrack(volume: 0.22);
 
-    if (mounted) setState(() => _isPreviewPlaying = true);
+        _previewSub = _nativeVoicePlayer.onPlayerComplete.listen((_) async {
+          await _previewSub?.cancel();
+          _previewSub = null;
+          await _beatPlayer.stop();
+          if (mounted) setState(() => _isPreviewPlaying = false);
+        });
+      }
+
+      if (mounted) setState(() => _isPreviewPlaying = true);
+    } catch (e) {
+      await _stopPreview();
+      if (_isMissingFileError(e)) {
+        if (mounted) {
+          setState(() {
+            _recordedPath = null;
+            _isPreviewPlaying = false;
+          });
+        }
+        _showMessage('Recorded file was not found. Please record again.');
+        return;
+      }
+      _showMessage('Could not play preview mix: $e');
+    }
   }
 
   Future<void> _stopPreview() async {
@@ -235,17 +322,33 @@ class _RapRecordPageState extends State<RapRecordPage> {
   }
 
   Future<void> _saveRecordingMetadata(String path) async {
+    final normalizedPath = _normalizeStoredPath(path);
+    if (normalizedPath.isEmpty) return;
+
     final prefs = await SharedPreferences.getInstance();
     final existing = prefs.getStringList('local_recordings') ?? [];
+    existing.removeWhere((s) {
+      try {
+        final raw = (jsonDecode(s) as Map)['path'];
+        final stored = _normalizeStoredPath(raw?.toString() ?? '');
+        return stored == normalizedPath;
+      } catch (_) {
+        return false;
+      }
+    });
+
     final entry = jsonEncode({
-      'path': path,
+      'path': normalizedPath,
       'beatTitle': widget.selectedBeat.title,
       'beatId': widget.selectedBeat.id,
       'beatAudioPath': widget.selectedBeat.audioPath,
       'createdAt': DateTime.now().toIso8601String(),
     });
     existing.insert(0, entry);
-    await prefs.setStringList('local_recordings', existing);
+    final saved = await prefs.setStringList('local_recordings', existing);
+    debugPrint(
+      '[RapRecord] Metadata save result: $saved, entries: ${existing.length}, path: $normalizedPath',
+    );
   }
 
   Future<String> _buildRecordingPath() async {
@@ -255,6 +358,18 @@ class _RapRecordPageState extends State<RapRecordPage> {
     return "${dir.path}/rap_preview_$stamp.m4a";
   }
 
+  Future<void> _disposeRecorderSafely() async {
+    try {
+      if (await _recorder.isRecording()) {
+        await _recorder.stop();
+      }
+    } catch (_) {}
+
+    try {
+      await _recorder.dispose();
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
     _previewSub?.cancel();
@@ -262,7 +377,7 @@ class _RapRecordPageState extends State<RapRecordPage> {
     _beatPlayer.dispose();
     _nativeVoicePlayer.dispose();
     _webVoice.dispose();
-    _recorder.cancel();
+    unawaited(_disposeRecorderSafely());
     super.dispose();
   }
 

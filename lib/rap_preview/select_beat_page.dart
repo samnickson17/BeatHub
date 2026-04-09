@@ -49,19 +49,26 @@ class _SelectBeatPageState extends State<SelectBeatPage> {
       return;
     }
 
-    await _player.stop();
-    if (beat.audioPath.startsWith('assets/')) {
-      await _player.play(
-        AssetSource(beat.audioPath.replaceFirst('assets/', '')),
-      );
-    } else if (beat.audioPath.startsWith('http')) {
-      await _player.play(UrlSource(beat.audioPath));
-    } else {
-      await _player.play(DeviceFileSource(beat.audioPath));
-    }
+    try {
+      await _player.stop();
+      if (beat.audioPath.startsWith('assets/')) {
+        await _player.play(
+          AssetSource(beat.audioPath.replaceFirst('assets/', '')),
+        );
+      } else if (beat.audioPath.startsWith('http')) {
+        await _player.play(UrlSource(beat.audioPath));
+      } else {
+        await _player.play(DeviceFileSource(beat.audioPath));
+      }
 
-    if (mounted) {
-      setState(() => _playingBeatId = beat.id);
+      if (mounted) {
+        setState(() => _playingBeatId = beat.id);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not preview beat: $e')),
+      );
     }
   }
 

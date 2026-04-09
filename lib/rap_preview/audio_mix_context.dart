@@ -4,7 +4,9 @@ import 'package:audioplayers/audioplayers.dart';
 /// simultaneously on both Android and iOS without stealing audio focus.
 AudioContext get mixingAudioContext => AudioContext(
   android: const AudioContextAndroid(
-    audioFocus: AndroidAudioFocus.gain,
+    // Do not request audio focus so beat and vocal players can run in parallel
+    // without forcing focus-loss callbacks on each other.
+    audioFocus: AndroidAudioFocus.none,
     contentType: AndroidContentType.music,
     usageType: AndroidUsageType.media,
     isSpeakerphoneOn: false,
