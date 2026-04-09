@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../backend/local_backend.dart';
@@ -51,34 +50,8 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
   Future<void> _search(String query) async {
     setState(() => _isSearching = true);
     try {
-      final lower = query.toLowerCase();
-      final end =
-          lower.substring(0, lower.length - 1) +
-          String.fromCharCode(lower.codeUnitAt(lower.length - 1) + 1);
-
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .where('displayName', isGreaterThanOrEqualTo: query)
-          .where('displayName', isLessThan: end)
-          .limit(20)
-          .get();
-
-      // Also search by username
-      final snap2 = await FirebaseFirestore.instance
-          .collection('users')
-          .where('username', isGreaterThanOrEqualTo: lower)
-          .where('username', isLessThan: end)
-          .limit(20)
-          .get();
-
-      final seen = <String>{};
-      final results = <UserProfile>[];
-      for (final doc in [...snap.docs, ...snap2.docs]) {
-        if (seen.contains(doc.id)) continue;
-        seen.add(doc.id);
-        final data = {...doc.data(), 'uid': doc.id};
-        results.add(_profileFromMap(data));
-      }
+      final rows = await AppBackend.follow.searchUsers(query, limit: 20);
+      final results = rows.map(_profileFromMap).toList();
 
       if (mounted) setState(() => _searchResults = results);
     } catch (_) {
@@ -106,18 +79,12 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
             .toList();
         _suggestedProducers = [];
       } else {
-        // Suggest producers from Firestore
-        final snapshot = await FirebaseFirestore.instance
-            .collection('users')
-            .where('role', isEqualTo: 'producer')
-            .limit(20)
-            .get();
-        _suggestedProducers = snapshot.docs.where((d) => d.id != myUid).map((
-          d,
-        ) {
-          final data = {...d.data(), 'uid': d.id};
-          return _profileFromMap(data);
-        }).toList();
+        final rows = await AppBackend.follow.listUsersByRole(
+          'producer',
+          limit: 20,
+          excludeUid: myUid,
+        );
+        _suggestedProducers = rows.map(_profileFromMap).toList();
         _followedProducers = [];
       }
 

@@ -91,6 +91,41 @@ class ApiAuthBackend implements AuthBackend {
       throw UnimplementedError(
         'Google sign-in is not implemented for API backend.',
       );
+
+  @override
+  Future<SessionUser> completeGoogleSignup({
+    required String uid,
+    required String email,
+    required String username,
+    required AppUserRole role,
+    String? displayName,
+  }) async {
+    throw UnimplementedError(
+      'Google onboarding completion is not implemented for API backend.',
+    );
+  }
+
+  @override
+  Future<void> updateCurrentUserProfile({
+    required String displayName,
+    required String username,
+    required String bio,
+  }) async {
+    throw UnimplementedError(
+      'Profile update is not implemented for API backend.',
+    );
+  }
+
+  @override
+  Future<void> changePassword({
+    required String email,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    throw UnimplementedError(
+      'Password change is not implemented for API backend.',
+    );
+  }
 }
 
 class ApiBeatsBackend implements BeatsBackend {

@@ -20,11 +20,11 @@ class SessionUser {
 abstract class AuthBackend {
   SessionUser? get currentUser;
 
-  /// Restores session from Firebase if a user is still signed in.
+  /// Restores session if a user is still signed in.
   /// Returns null if no active session.
   Future<SessionUser?> restoreSession();
 
-  /// Role is not passed — it is read from Firestore.
+  /// Role is not passed — it is read from the profile store.
   Future<SessionUser?> login({required String email, required String password});
 
   Future<SessionUser> signup({
@@ -38,9 +38,32 @@ abstract class AuthBackend {
 
   /// Signs in with Google OAuth.
   /// Returns a record: (user, isNewUser).
-  /// [isNewUser] is true when a Firestore profile doesn't exist yet —
+  /// [isNewUser] is true when a profile doesn't exist yet —
   /// callers should then ask for a username and role.
   Future<(SessionUser?, bool)> signInWithGoogle();
+
+  /// Called after Google OAuth for users missing username/role.
+  Future<SessionUser> completeGoogleSignup({
+    required String uid,
+    required String email,
+    required String username,
+    required AppUserRole role,
+    String? displayName,
+  });
+
+  /// Update current signed-in user's profile fields.
+  Future<void> updateCurrentUserProfile({
+    required String displayName,
+    required String username,
+    required String bio,
+  });
+
+  /// Change current user's password.
+  Future<void> changePassword({
+    required String email,
+    required String currentPassword,
+    required String newPassword,
+  });
 }
 
 abstract class BeatsBackend {
@@ -86,6 +109,19 @@ abstract class FollowBackend {
   /// UIDs that follow [uid].
   Future<List<String>> getFollowerIds(String uid);
 
-  /// Firestore user doc data for a uid.
+  /// User profile data for a uid.
   Future<Map<String, dynamic>?> getUserProfile(String uid);
+
+  /// Prefix search by username/display name.
+  Future<List<Map<String, dynamic>>> searchUsers(
+    String query, {
+    int limit = 20,
+  });
+
+  /// List users by role, optionally excluding one uid.
+  Future<List<Map<String, dynamic>>> listUsersByRole(
+    String role, {
+    int limit = 20,
+    String? excludeUid,
+  });
 }

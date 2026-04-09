@@ -1,17 +1,30 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth/login_page.dart';
 import 'backend/backend_contracts.dart';
 import 'backend/local_backend.dart';
 import 'core/routes.dart';
+import 'core/supabase_config.dart';
 import 'core/theme.dart';
-import 'firebase_options.dart';
 import 'navigation/buyer_bottom_nav.dart';
 import 'navigation/producer_bottom_nav.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  if (!SupabaseConfig.isConfigured) {
+    throw Exception(
+      'Supabase is not configured. Set defaults in SupabaseConfig or pass '
+      '--dart-define=SUPABASE_URL=... and --dart-define=SUPABASE_ANON_KEY=... '
+      'to override per environment.',
+    );
+  }
+
+  await Supabase.initialize(
+    url: SupabaseConfig.url,
+    anonKey: SupabaseConfig.anonKey,
+  );
+
   runApp(const BeatHubApp());
 }
 
@@ -24,7 +37,7 @@ class BeatHubApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       routes: AppRoutes.routes,
-      // Restore session on launch — skip login if Firebase user is still signed in
+      // Restore session on launch — skip login if user is still signed in.
       home: FutureBuilder<SessionUser?>(
         future: AppBackend.auth.restoreSession(),
         builder: (context, snapshot) {

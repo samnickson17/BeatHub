@@ -3,7 +3,7 @@ import '../beats/beat_store.dart';
 import '../data/purchased_beats.dart';
 import '../profile/profile_store.dart';
 import 'backend_contracts.dart';
-import 'firebase_backend.dart';
+import 'supabase_backend.dart';
 
 // ─────────────────────────────────────────────
 // Local (mock) Auth — kept for offline testing
@@ -62,6 +62,57 @@ class LocalAuthBackend implements AuthBackend {
   @override
   Future<(SessionUser?, bool)> signInWithGoogle() async =>
       throw UnimplementedError('Google sign-in not available in local mode.');
+
+  @override
+  Future<SessionUser> completeGoogleSignup({
+    required String uid,
+    required String email,
+    required String username,
+    required AppUserRole role,
+    String? displayName,
+  }) async {
+    _currentUser = SessionUser(
+      userId: uid,
+      email: email,
+      role: role,
+      username: username,
+    );
+    ProfileStore.setCurrentUserFromSession(
+      _currentUser!,
+      username: username,
+      displayName: displayName ?? username,
+    );
+    return _currentUser!;
+  }
+
+  @override
+  Future<void> updateCurrentUserProfile({
+    required String displayName,
+    required String username,
+    required String bio,
+  }) async {
+    final current = _currentUser;
+    if (current == null) {
+      throw Exception('No active session');
+    }
+    ProfileStore.saveProfile(
+      ArtistProfile(
+        userId: current.userId,
+        name: displayName,
+        username: username,
+        bio: bio,
+      ),
+    );
+  }
+
+  @override
+  Future<void> changePassword({
+    required String email,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    // Local mode: no remote auth provider.
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -179,6 +230,61 @@ class LocalFollowBackend implements FollowBackend {
 
   @override
   Future<Map<String, dynamic>?> getUserProfile(String uid) async => null;
+
+  @override
+  Future<List<Map<String, dynamic>>> searchUsers(
+    String query, {
+    int limit = 20,
+  }) async {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return [];
+
+    final all = ProfileStore.getAllProfiles();
+    final matched = all
+        .where((p) {
+          return p.username.toLowerCase().contains(q) ||
+              p.displayName.toLowerCase().contains(q);
+        })
+        .take(limit);
+
+    return matched
+        .map(
+          (p) => {
+            'uid': p.userId,
+            'username': p.username,
+            'displayName': p.displayName,
+            'bio': p.bio,
+            'role': p.role,
+          },
+        )
+        .toList();
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> listUsersByRole(
+    String role, {
+    int limit = 20,
+    String? excludeUid,
+  }) async {
+    final matched = ProfileStore.getAllProfiles()
+        .where((p) {
+          if (excludeUid != null && p.userId == excludeUid) return false;
+          return p.role == role;
+        })
+        .take(limit);
+
+    return matched
+        .map(
+          (p) => {
+            'uid': p.userId,
+            'username': p.username,
+            'displayName': p.displayName,
+            'bio': p.bio,
+            'role': p.role,
+          },
+        )
+        .toList();
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -186,8 +292,8 @@ class LocalFollowBackend implements FollowBackend {
 // Swap to Local* classes for offline testing
 // ─────────────────────────────────────────────
 class AppBackend {
-  static final AuthBackend auth = FirebaseAuthBackend();
-  static final BeatsBackend beats = FirebaseBeatsBackend();
-  static final PurchasesBackend purchases = FirebasePurchasesBackend();
-  static final FollowBackend follow = FirebaseFollowBackend();
+  static final AuthBackend auth = SupabaseAuthBackend();
+  static final BeatsBackend beats = SupabaseBeatsBackend();
+  static final PurchasesBackend purchases = SupabasePurchasesBackend();
+  static final FollowBackend follow = SupabaseFollowBackend();
 }

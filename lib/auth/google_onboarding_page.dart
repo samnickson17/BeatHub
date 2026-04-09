@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../backend/backend_contracts.dart';
-import '../backend/firebase_backend.dart';
 import '../backend/local_backend.dart';
 
 class GoogleOnboardingPage extends StatefulWidget {
@@ -48,8 +47,7 @@ class _GoogleOnboardingPageState extends State<GoogleOnboardingPage> {
 
     setState(() => _isLoading = true);
     try {
-      final backend = AppBackend.auth as FirebaseAuthBackend;
-      final user = await backend.completeGoogleSignup(
+      final user = await AppBackend.auth.completeGoogleSignup(
         uid: widget.uid,
         email: widget.email,
         username: _usernameController.text.trim(),

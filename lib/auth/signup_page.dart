@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../backend/backend_contracts.dart';
 import '../backend/local_backend.dart';
 import '../core/routes.dart';
@@ -97,7 +98,9 @@ class _SignupPageState extends State<SignupPage> {
               : AppRoutes.buyerNav,
         );
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[SignupPage] Google sign-in failed: $e');
+      debugPrint('[SignupPage] stack: $st');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -125,6 +128,7 @@ class _SignupPageState extends State<SignupPage> {
 
   String _friendlyGoogleError(Object error) {
     final raw = error.toString();
+    final lower = raw.toLowerCase();
 
     if (raw.contains("Unknown calling package name 'com.google.android.gms'") ||
         raw.contains('GoogleApiManager') ||
@@ -133,13 +137,31 @@ class _SignupPageState extends State<SignupPage> {
     }
     if (raw.contains('missing-google-auth-token') ||
         raw.contains('ApiException: 10')) {
-      return 'Google Sign-In is not configured in Firebase for this Android app (OAuth/SHA).';
+      return 'Google Sign-In is not configured for this app in Supabase Auth (OAuth client/SHA).';
+    }
+    if (lower.contains('did not return an id token')) {
+      if (kIsWeb) {
+        return 'Google Sign-In returned no ID token. Set SUPABASE_GOOGLE_WEB_CLIENT_ID (Web OAuth client ID).';
+      }
+      return 'Google Sign-In returned no ID token. Set SUPABASE_GOOGLE_SERVER_CLIENT_ID (Web OAuth client ID).';
+    }
+    if (lower.contains('provider is not enabled') ||
+        lower.contains('unsupported provider') ||
+        lower.contains('provider_disabled')) {
+      return 'Enable Google provider in Supabase Auth settings.';
+    }
+    if (lower.contains('invalid id token') ||
+        lower.contains('audience') ||
+        lower.contains('jwt')) {
+      return 'Google ID token is invalid for this project. Verify OAuth client IDs in Supabase and app config.';
     }
     if (raw.contains('network_error') ||
         raw.contains('network-request-failed')) {
       return 'No internet connection.';
     }
-    if (raw.contains('sign_in_canceled') || raw.contains('canceled')) {
+    if (raw.contains('popup_closed') ||
+        raw.contains('sign_in_canceled') ||
+        raw.contains('canceled')) {
       return 'Google sign-in was cancelled.';
     }
     return 'Google sign-in failed. Please try again.';

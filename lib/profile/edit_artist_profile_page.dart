@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../backend/local_backend.dart';
@@ -63,12 +61,11 @@ class _EditArtistProfilePageState extends State<EditArtistProfilePage> {
     if (!_profileFormKey.currentState!.validate()) return;
     setState(() => _isSavingProfile = true);
     try {
-      final uid = AppBackend.auth.currentUser?.userId ?? '';
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
-        'displayName': _nameController.text.trim(),
-        'username': _usernameController.text.trim(),
-        'bio': _bioController.text.trim(),
-      });
+      await AppBackend.auth.updateCurrentUserProfile(
+        displayName: _nameController.text.trim(),
+        username: _usernameController.text.trim(),
+        bio: _bioController.text.trim(),
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -93,15 +90,11 @@ class _EditArtistProfilePageState extends State<EditArtistProfilePage> {
     if (!_passwordFormKey.currentState!.validate()) return;
     setState(() => _isChangingPassword = true);
     try {
-      final firebaseUser = FirebaseAuth.instance.currentUser!;
-
-      // Re-authenticate before changing password
-      final credential = EmailAuthProvider.credential(
+      await AppBackend.auth.changePassword(
         email: widget.email,
-        password: _currentPasswordController.text,
+        currentPassword: _currentPasswordController.text,
+        newPassword: _newPasswordController.text,
       );
-      await firebaseUser.reauthenticateWithCredential(credential);
-      await firebaseUser.updatePassword(_newPasswordController.text);
 
       if (!mounted) return;
       _currentPasswordController.clear();
@@ -110,14 +103,17 @@ class _EditArtistProfilePageState extends State<EditArtistProfilePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Password changed successfully!")),
       );
-    } on FirebaseAuthException catch (e) {
+    } catch (e) {
       if (!mounted) return;
+      final raw = e.toString().toLowerCase();
       String msg = 'Password change failed.';
-      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+      if (raw.contains('invalid login credentials') ||
+          raw.contains('wrong-password') ||
+          raw.contains('invalid-credential')) {
         msg = 'Current password is incorrect.';
-      } else if (e.code == 'weak-password') {
+      } else if (raw.contains('weak-password')) {
         msg = 'New password is too weak.';
-      } else if (e.code == 'requires-recent-login') {
+      } else if (raw.contains('requires-recent-login')) {
         msg = 'Please log out and log back in before changing your password.';
       }
       ScaffoldMessenger.of(context).showSnackBar(

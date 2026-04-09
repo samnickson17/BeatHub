@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../backend/local_backend.dart';
@@ -31,17 +30,14 @@ class _ArtistProfilePageState extends State<ArtistProfilePage> {
     try {
       final uid = AppBackend.auth.currentUser?.userId ?? '';
       final results = await Future.wait([
-        FirebaseFirestore.instance.collection('users').doc(uid).get(),
+        AppBackend.follow.getUserProfile(uid),
         AppBackend.purchases.fetchPurchasesByBuyer(uid),
         AppBackend.follow.getFollowerIds(uid),
         AppBackend.follow.getFollowingIds(uid),
       ]);
       if (mounted) {
         setState(() {
-          _userData =
-              (results[0] as DocumentSnapshot).data()
-                  as Map<String, dynamic>? ??
-              {};
+          _userData = (results[0] as Map<String, dynamic>?) ?? {};
           _purchaseCount = (results[1] as List).length;
           _followerIds = List<String>.from(results[2] as List);
           _followingIds = List<String>.from(results[3] as List);
